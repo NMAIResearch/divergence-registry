@@ -77,7 +77,7 @@
           "S1": "population and denominator",
           "S2": "inclusion and exclusion rule",
           "S3": "as-of date and vintage policy",
-          "S4": "kill criterion",
+          "S4": "stop criterion",
           "S5": "research mode per stage",
           "S6": "exit and censoring rule"
         },
@@ -109,10 +109,10 @@
       },
       "hashes": {
         "DIVERGENCE_PROTOCOL.md": [
-          "2e79f79584f657c34f54f2567ef97a58a5cce30a9f38db7637708b5ff92c7f10"
+          "3afa5611decfbdc29b3dd6aac87846fb6ee1dde007565953f5852417659fa6e0"
         ],
         "research_gate.py": [
-          "0b8ad86284326c8bba7a2d1c3be1d7d19979863889144076b88cfb019bd0ca11"
+          "3c6b9687aee39aa20aa0469b419d22bab7f69f3cb36af9e1ac53e02e4d7d6206"
         ],
         "agp_deterministic.py": [
           "1154e79240ece38d67408d1e8a4174935c48e87882f51b8ea47049a94fde4351"

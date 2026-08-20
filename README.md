@@ -1,25 +1,25 @@
 # Divergence Registry
 
-A versioned research protocol and deterministic checker suite for making methodological divergence
-attributable.
+A versioned protocol and deterministic checker suite for recording methodological decisions and
+comparing research runs.
 
 **v0.2 release candidate: on trial.** The toolchain has passed structural and adversarial checks.
 The research method has not completed an end-to-end v0.2 subject and is not presented as validated.
 
-Read [`DIVERGENCE_PROTOCOL.md`](DIVERGENCE_PROTOCOL.md) first. Its central claim is deliberately
-narrow: the process record can show where two research runs diverged. It cannot guarantee that two
-researchers reach the same conclusion or that either conclusion is sound.
+Read [`DIVERGENCE_PROTOCOL.md`](DIVERGENCE_PROTOCOL.md) first. The supported claim is that recorded
+divergence is attributable to named methodological decisions. The protocol does not claim that
+different researchers will agree or that a completed result is substantively correct.
 
-## What it enforces
+## Enforcement scope
 
 Six stages (question, scope, data, digest, draft, mint), each with named decision points. Every
-choice that could send two researchers in different directions is logged with the alternatives that
-were available, so two artefacts can be diffed and the diff says where they split.
+choice capable of changing a result is logged with the alternatives available at the time. The
+resulting decision registers can be compared across research runs.
 
-The claim is **divergence is attributable**, not that divergence is absent. Two competent people on
+The claim is divergence is attributable, not that divergence is absent. Two competent people on
 the same subject may still reach different conclusions.
 
-## The scripts
+## Components
 
 Standard library only. No dependencies, no network.
 
@@ -34,18 +34,17 @@ python3 agp_deterministic.py DRAFT.md --source filing.txt:1 --source deck.txt:5
 python3 agp_deterministic.py --demo
 ```
 
-`research_gate.py` gates the **registers and instrument binding**: 27 required decisions in v0.2
-(26 in explicitly selected v0.1), exact release and project manifest agreement, current protocol,
-gate and prose-checker bytes, source custody and hashes, claims resolving to sources, controlled
-vocabulary and draft sections.
+`research_gate.py` checks 27 required decisions in v0.2 (26 in explicitly selected v0.1), release
+and project manifest agreement, current instrument bytes, source custody, claim-to-source links,
+controlled vocabulary and required draft sections.
 
-`agp_deterministic.py` gates the **prose against the sources**: fabricated numbers, grafted
-relations, internal contradictions, claims resting only on self-interested sources, and
-misattribution where the named subject appears solely inside a correction.
+`agp_deterministic.py` checks the draft against supplied sources for unsupported numeric tokens,
+entity mismatches, internal numeric contradictions, claims supported only by tier 4 or 5 sources,
+and names appearing solely inside a correction or negation.
 
-Neither covers the other. Run both. Run `--demo` on each before trusting a pass.
+The scripts cover different failure classes. Run both demos before relying on a project result.
 
-## Quickstart
+## Use
 
 1. `python3 research_gate.py --init subject_dir`
 2. Fill `decisions.csv` top down, working the stages in `DIVERGENCE_PROTOCOL.md`. Blanks and
@@ -56,9 +55,9 @@ Neither covers the other. Run both. Run `--demo` on each before trusting a pass.
 
 ## Limits
 
-Stated in full at the end of the protocol. The short version: this checks that the process is intact
-and the claims are grounded. It cannot tell you whether the research is any good, and nothing
-here defends against a well-formed artefact answering a worthless question.
+The checkers establish process integrity and source grounding within their stated rules. They do
+not assess the substantive value of the research question or conclusion. Full limitations are
+listed in the protocol.
 
 ## Licence
 

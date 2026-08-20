@@ -20,8 +20,8 @@ Six arms:
               each with at least one genuine alternative
   SOURCES     motive tier is 1-5, retrieved sources exist and match their hash, sources
               that could not be retrieved carry a reason
-  CLAIMS      every claim resolves to a registered source; a load-bearing claim grounded
-              only in tier 4 or 5 carries a second source
+  CLAIMS      every claim resolves to a registered source; a claim material to the conclusion
+              carries a second source when grounded only in tier 4 or 5
   VOCAB       controlled columns validated against vocabulary.csv
   DRAFT       the draft names the falsifier and carries a verification section, a negative-
               results or retained-limits section, and a COI note
@@ -93,7 +93,7 @@ CONTRACT_V0_2 = {
         "S1": "population and denominator",
         "S2": "inclusion and exclusion rule",
         "S3": "as-of date and vintage policy",
-        "S4": "kill criterion",
+        "S4": "stop criterion",
         "S5": "research mode per stage",
         "S6": "exit and censoring rule",
     },
@@ -131,24 +131,41 @@ FILES = {
     "sources.csv": ["source_id", "title", "publisher", "motive_tier", "source_role", "url",
                     "local_path", "sha256", "retrieval_status", "accessed_date",
                     "second_source_id", "notes"],
-    "claims.csv": ["claim_id", "claim_text", "source_id", "claim_basis", "load_bearing",
+    "claims.csv": ["claim_id", "claim_text", "source_id", "claim_basis", "material_to_conclusion",
                    "uncertainty", "notes"],
     "vocabulary.csv": ["column", "value", "definition"],
 }
 
-SEED_VOCAB = [
-    ("claim_basis", "reported", "The source states this value itself."),
-    ("claim_basis", "derived", "Computed by the author from source values. The computation is named."),
-    ("claim_basis", "inferred", "A judgement the source does not itself make. Never presented as reported."),
-    ("load_bearing", "yes", "The finding changes if this claim is wrong."),
-    ("load_bearing", "no", "Supporting or contextual. The finding survives without it."),
-    ("retrieval_status", "retrieved", "Held locally and hash-verified."),
-    ("retrieval_status", "registered_not_retrieved",
-     "Judged necessary but could not be obtained. Stays in the register with a reason and counts "
-     "against the denominator."),
-    ("retrieval_status", "cited_not_held",
-     "Deliberately not held under the D2 custody policy. Stable, archived or mirrored source."),
+LEGACY_V0_1_CLAIMS_COLUMNS = [
+    "claim_id", "claim_text", "source_id", "claim_basis", "load_bearing", "uncertainty", "notes"
 ]
+CLAIM_MATERIAL_FIELDS = {
+    "v0.1": "load_bearing",
+    "v0.2": "material_to_conclusion",
+}
+
+
+def file_columns(name, contract_name=DEFAULT_CONTRACT):
+    if name == "claims.csv" and contract_name == "v0.1":
+        return LEGACY_V0_1_CLAIMS_COLUMNS
+    return FILES[name]
+
+
+def seed_vocab(contract_name=DEFAULT_CONTRACT):
+    material_field = CLAIM_MATERIAL_FIELDS[contract_name]
+    return [
+        ("claim_basis", "reported", "The source states this value itself."),
+        ("claim_basis", "derived", "Computed by the author from source values. The computation is named."),
+        ("claim_basis", "inferred", "A judgement the source does not itself make. Never presented as reported."),
+        (material_field, "yes", "The finding changes if this claim is wrong."),
+        (material_field, "no", "Supporting or contextual. The finding survives without it."),
+        ("retrieval_status", "retrieved", "Held locally and hash-verified."),
+        ("retrieval_status", "registered_not_retrieved",
+         "Judged necessary but could not be obtained. Stays in the register with a reason and counts "
+         "against the denominator."),
+        ("retrieval_status", "cited_not_held",
+         "Deliberately not held under the D2 custody policy. Stable, archived or mirrored source."),
+    ]
 
 # A placeholder is not an answer. --init writes these; the gate refuses them.
 PLACEHOLDER = re.compile(r"^\s*(|todo|tbd|n/?a|none|-+|\.\.\.|xxx+|\?+)\s*$", re.I)
@@ -180,7 +197,8 @@ def blank(value):
     return PLACEHOLDER.match(value or "") is not None
 
 
-def read_csv(path, report, arm="MANIFEST", needed_at=None, through=None):
+def read_csv(path, report, arm="MANIFEST", needed_at=None, through=None,
+             contract_name=DEFAULT_CONTRACT):
     """Read a register, checking its columns. Returns [] and records an error on any problem.
 
     A register that is empty is only a failure once the stage that fills it has been reached.
@@ -192,7 +210,7 @@ def read_csv(path, report, arm="MANIFEST", needed_at=None, through=None):
         return []
     with path.open(encoding="utf-8", newline="") as fh:
         rows = list(csv.DictReader(fh))
-    expected = FILES[name]
+    expected = file_columns(name, contract_name)
     got = list(rows[0].keys()) if rows else None
     if got is not None:
         if name == "decisions.csv":
@@ -571,11 +589,12 @@ def arm_sources(rows, root, report, decisions=None, contract_name="v0.2"):
     return ids
 
 
-def arm_claims(rows, sources, source_ids, report):
+def arm_claims(rows, sources, source_ids, report, contract_name=DEFAULT_CONTRACT):
     tier = {(r["source_id"] or "").strip(): (r["motive_tier"] or "").strip() for r in sources}
     second = {(r["source_id"] or "").strip(): (r["second_source_id"] or "").strip()
               for r in sources}
-    load_bearing = 0
+    material_field = CLAIM_MATERIAL_FIELDS[contract_name]
+    material_count = 0
     for i, r in enumerate(rows, start=2):
         cid = (r["claim_id"] or "").strip() or f"row {i}"
         sid = (r["source_id"] or "").strip()
@@ -588,15 +607,15 @@ def arm_claims(rows, sources, source_ids, report):
         if blank(r["uncertainty"]):
             report.check(False, f"{cid}: no uncertainty recorded. A point estimate is a "
                                 f"choice (G5), so state it as one.", "CLAIMS")
-        if (r["load_bearing"] or "").strip().lower() == "yes":
-            load_bearing += 1
+        if (r[material_field] or "").strip().lower() == "yes":
+            material_count += 1
             # D4 and the AGP source-tier gate: faithful transcription of a self-interested
             # source still fails. Grounding is not truth.
             if tier.get(sid) in {"4", "5"} and blank(second.get(sid)):
-                report.check(False, f"{cid}: load-bearing, grounded only in {sid} at motive "
+                report.check(False, f"{cid}: material to the conclusion, grounded only in {sid} at motive "
                                     f"tier {tier.get(sid)}, and that source has no "
                                     f"second_source_id", "CLAIMS")
-    report.note(f"{len(rows)} claims, {load_bearing} load-bearing")
+    report.note(f"{len(rows)} claims, {material_count} material to the conclusion")
 
 
 def arm_vocab(vocab_rows, tables, report):
@@ -687,10 +706,14 @@ def run(root, through, quiet=False, contract=None):
 
     contract_name, required_schema = arm_manifest(root, report, cli_contract=contract)
 
-    decisions = read_csv(root / "decisions.csv", report, needed_at="question", through=through)
-    sources = read_csv(root / "sources.csv", report, needed_at="data", through=through)
-    claims = read_csv(root / "claims.csv", report, needed_at="digest", through=through)
-    vocab = read_csv(root / "vocabulary.csv", report, needed_at="digest", through=through)
+    decisions = read_csv(root / "decisions.csv", report, needed_at="question", through=through,
+                         contract_name=contract_name)
+    sources = read_csv(root / "sources.csv", report, needed_at="data", through=through,
+                       contract_name=contract_name)
+    claims = read_csv(root / "claims.csv", report, needed_at="digest", through=through,
+                      contract_name=contract_name)
+    vocab = read_csv(root / "vocabulary.csv", report, needed_at="digest", through=through,
+                     contract_name=contract_name)
 
     if STAGES.index(through) < STAGES.index("data") and sources:
         report.check(False, f"sources.csv contains {len(sources)} row(s) before stage 'data' is reached "
@@ -706,7 +729,7 @@ def run(root, through, quiet=False, contract=None):
         arm_decisions(decisions, through, report, required_schema=required_schema, contract_name=contract_name)
     source_ids = arm_sources(sources, root, report, decisions, contract_name=contract_name) if sources else set()
     if claims and sources:
-        arm_claims(claims, sources, source_ids, report)
+        arm_claims(claims, sources, source_ids, report, contract_name=contract_name)
     if vocab:
         arm_vocab(vocab, {"sources.csv": sources, "claims.csv": claims}, report)
     if STAGES.index(through) >= STAGES.index("draft"):
@@ -753,7 +776,8 @@ def init(root, contract="v0.2"):
     root.mkdir(parents=True, exist_ok=True)
     (root / "sources").mkdir(exist_ok=True)
     made = []
-    for name, cols in FILES.items():
+    for name in FILES:
+        cols = file_columns(name, contract_key)
         p = root / name
         if p.exists():
             print(f"  kept    {name} (already exists)")
@@ -766,7 +790,7 @@ def init(root, contract="v0.2"):
                     for did, what in schema[stage].items():
                         w.writerow([did, stage, what, "", "", "", "", "", ""])
             elif name == "vocabulary.csv":
-                w.writerows(SEED_VOCAB)
+                w.writerows(seed_vocab(contract_key))
         made.append(name)
         print(f"  created {name}")
 
@@ -839,7 +863,7 @@ def demo():
 
         with (proj / "claims.csv").open("w", encoding="utf-8", newline="") as fh:
             w = csv.writer(fh)
-            w.writerow(FILES["claims.csv"])
+            w.writerow(file_columns("claims.csv", "v0.2"))
             w.writerow(["C1", "Returned capacity is 4,200 MW across 17 sites.",
                         "regulator_filing", "reported", "yes", "as filed, no band given", ""])
             w.writerow(["C2", "Mean site size is 247 MW.", "regulator_filing", "derived", "no",
@@ -888,7 +912,7 @@ def demo():
                         "", "Held because the return is republished in place."])
         with (proj_v01 / "claims.csv").open("w", encoding="utf-8", newline="") as fh:
             w = csv.writer(fh)
-            w.writerow(FILES["claims.csv"])
+            w.writerow(file_columns("claims.csv", "v0.1"))
             w.writerow(["C1", "Returned capacity is 4,200 MW across 17 sites.",
                         "regulator_filing", "reported", "yes", "as filed, no band given", ""])
         (proj_v01 / "findings.md").write_text(
@@ -948,7 +972,7 @@ def demo():
                         "", "Held because the return is republished in place."])
         with (proj_static / "claims.csv").open("w", encoding="utf-8", newline="") as fh:
             w = csv.writer(fh)
-            w.writerow(FILES["claims.csv"])
+            w.writerow(file_columns("claims.csv", "v0.2"))
             w.writerow(["C1", "Returned capacity is 4,200 MW across 17 sites.",
                         "regulator_filing", "reported", "yes", "as filed, no band given", ""])
         (proj_static / "findings.md").write_text(
@@ -1067,11 +1091,16 @@ def demo():
             ("CLAIMS", "point a claim at a source that is not registered",
              lambda: rewrite_csv(proj / "claims.csv", "claim_id", "C1",
                                  {"source_id": "press_writeup"}), {}),
-            ("CLAIMS", "make a tier-5 source carry a load-bearing claim alone",
+            ("CLAIMS", "make a tier-5 source carry a conclusion-material claim alone",
              lambda: (rewrite_csv(proj / "claims.csv", "claim_id", "C1",
                                   {"source_id": "vendor_deck"}),
                       rewrite_csv(proj / "sources.csv", "source_id", "vendor_deck",
                                   {"second_source_id": ""})), {}),
+            ("CLAIMS", "substitute the legacy v0.1 materiality column under v0.2",
+             lambda: (proj / "claims.csv").write_text(
+                 (proj / "claims.csv").read_text(encoding="utf-8")
+                 .replace("material_to_conclusion", "load_bearing", 1),
+                 encoding="utf-8"), {}),
             ("VOCAB", "use an undeclared claim_basis",
              lambda: rewrite_csv(proj / "claims.csv", "claim_id", "C2",
                                  {"claim_basis": "estimated"}), {}),

@@ -77,7 +77,7 @@ def build_clean(root, contract="v0.2"):
 
     with (root / "claims.csv").open("w", encoding="utf-8", newline="") as fh:
         writer = csv.writer(fh)
-        writer.writerow(RG.FILES["claims.csv"])
+        writer.writerow(RG.file_columns("claims.csv", contract))
         writer.writerow([
             "C1",
             "Reported population is 17.",
@@ -165,6 +165,17 @@ def main():
         binding["instruments"]["protocol"]["version"] = "unrecognised-version"
         write_json(wrong_version / "instrument_manifest.json", binding)
         results.append(("unrecognised instrument version", "FAIL", quiet_run(wrong_version)))
+
+        legacy_claim_field = scratch / "legacy_claim_field_under_v02"
+        build_clean(legacy_claim_field)
+        claims_path = legacy_claim_field / "claims.csv"
+        claims_path.write_text(
+            claims_path.read_text(encoding="utf-8")
+            .replace("material_to_conclusion", "load_bearing", 1),
+            encoding="utf-8",
+        )
+        results.append(("legacy v0.1 claim field under v0.2", "FAIL",
+                        quiet_run(legacy_claim_field)))
 
         missing_schema = scratch / "missing_schema"
         build_clean(missing_schema)
