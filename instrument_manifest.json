@@ -1,0 +1,123 @@
+{
+  "manifest_type": "release_catalogue",
+  "schema_version": "1.2",
+  "default_contract": "v0.2",
+  "contracts": {
+    "v0.1": {
+      "guide_version": "v0",
+      "description": "Initial 26-decision trial protocol used in v0 trials T1-T2, C1-C10",
+      "instrument_root": "_frozen_instruments/v0",
+      "required_decisions": 26,
+      "stages": {
+        "question": {
+          "Q1": "unit of analysis",
+          "Q2": "the proposition, stated so it can fail",
+          "Q3": "the falsifier, dated and observable",
+          "Q4": "describe or score"
+        },
+        "scope": {
+          "S1": "population and denominator",
+          "S2": "inclusion and exclusion rule",
+          "S3": "as-of date and vintage policy",
+          "S4": "kill criterion",
+          "S5": "research mode per stage"
+        },
+        "data": {
+          "D1": "what counts as primary here",
+          "D2": "custody policy",
+          "D3": "non-retrieval policy",
+          "D4": "second-source rule"
+        },
+        "digest": {
+          "G1": "extraction schema",
+          "G2": "new-field admission rule",
+          "G3": "controlled vocabulary",
+          "G4": "derived against reported",
+          "G5": "uncertainty form"
+        },
+        "draft": {
+          "R1": "the claim ladder",
+          "R2": "negative results retained",
+          "R3": "register and voice gates",
+          "R4": "conflict of interest"
+        },
+        "mint": {
+          "M1": "evidence floor met",
+          "M2": "ships against stays local",
+          "M3": "version and lineage",
+          "M4": "commitment gate"
+        }
+      },
+      "hashes": {
+        "RESEARCH_GUIDE.md": [
+          "4910dce66a5db36ef387d41a1351eafa90f6786019696c0f0b91448ea003c2c6"
+        ],
+        "research_gate.py": [
+          "0f2abc04331bce42ef3187b4e6acd03d754ef9724977603cd734204b3bda9f5c",
+          "525ffb243f723f4691bc71d46a9e324b3dac1461e51d621f628a5b26daab05d7"
+        ],
+        "agp_deterministic.py": [
+          "1154e79240ece38d67408d1e8a4174935c48e87882f51b8ea47049a94fde4351"
+        ]
+      }
+    },
+    "v0.2": {
+      "protocol_version": "v0.2",
+      "description": "Repaired 27-decision protocol with mandatory S6 exit and censoring rule and manifest binding",
+      "instrument_root": ".",
+      "required_decisions": 27,
+      "stages": {
+        "question": {
+          "Q1": "unit of analysis",
+          "Q2": "the proposition, stated so it can fail",
+          "Q3": "the falsifier, dated and observable",
+          "Q4": "describe or score"
+        },
+        "scope": {
+          "S1": "population and denominator",
+          "S2": "inclusion and exclusion rule",
+          "S3": "as-of date and vintage policy",
+          "S4": "kill criterion",
+          "S5": "research mode per stage",
+          "S6": "exit and censoring rule"
+        },
+        "data": {
+          "D1": "what counts as primary here",
+          "D2": "custody policy",
+          "D3": "non-retrieval policy",
+          "D4": "second-source rule"
+        },
+        "digest": {
+          "G1": "extraction schema",
+          "G2": "new-field admission rule",
+          "G3": "controlled vocabulary",
+          "G4": "derived against reported",
+          "G5": "uncertainty form"
+        },
+        "draft": {
+          "R1": "the claim ladder",
+          "R2": "negative results retained",
+          "R3": "register and voice gates",
+          "R4": "conflict of interest"
+        },
+        "mint": {
+          "M1": "evidence floor met",
+          "M2": "ships against stays local",
+          "M3": "version and lineage",
+          "M4": "commitment gate"
+        }
+      },
+      "hashes": {
+        "DIVERGENCE_PROTOCOL.md": [
+          "2e79f79584f657c34f54f2567ef97a58a5cce30a9f38db7637708b5ff92c7f10"
+        ],
+        "research_gate.py": [
+          "0b8ad86284326c8bba7a2d1c3be1d7d19979863889144076b88cfb019bd0ca11"
+        ],
+        "agp_deterministic.py": [
+          "1154e79240ece38d67408d1e8a4174935c48e87882f51b8ea47049a94fde4351"
+        ]
+      }
+    }
+  }
+}

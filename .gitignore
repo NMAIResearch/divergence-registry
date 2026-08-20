@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+.DS_Store
+
+# Local research and maintainer records are outside the public repository.
+CLAUDE.md
+TESTING_CANDIDATES.md
+V0_FINDINGS.md
+_maintainer_baseline/
+trial_*/
