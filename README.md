@@ -3,7 +3,12 @@
 A versioned protocol and deterministic checker suite for recording methodological decisions and
 comparing research runs.
 
-**v0.2 release candidate: on trial.** The toolchain has passed structural and adversarial checks.
+**AI disclosure.** OpenAI GPT-5.6 Sol assisted with implementation and release maintenance. Google
+Gemini 3.7 Flash assisted with maintenance and trial orchestration. Anthropic Opus 5 performed the
+independent review of v0.2-rc1. The author retained all research and release decisions. Models are
+not authors.
+
+**v0.2-rc2 release candidate: on trial.** The toolchain has passed structural and adversarial checks.
 The research method has not completed an end-to-end v0.2 subject and is not presented as validated.
 
 Read [`DIVERGENCE_PROTOCOL.md`](DIVERGENCE_PROTOCOL.md) first. The supported claim is that recorded

@@ -109,7 +109,8 @@
       },
       "hashes": {
         "DIVERGENCE_PROTOCOL.md": [
-          "3afa5611decfbdc29b3dd6aac87846fb6ee1dde007565953f5852417659fa6e0"
+          "3afa5611decfbdc29b3dd6aac87846fb6ee1dde007565953f5852417659fa6e0",
+          "c2d2bb6dd8fa7076e9f2a1a78e0f38b73a9ceff4a4fec80ae4bb5e97c86d869f"
         ],
         "research_gate.py": [
           "3c6b9687aee39aa20aa0469b419d22bab7f69f3cb36af9e1ac53e02e4d7d6206"
