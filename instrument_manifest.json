@@ -63,8 +63,8 @@
     },
     "v0.2": {
       "protocol_version": "v0.2",
-      "description": "Repaired 27-decision protocol with mandatory S6 exit and censoring rule and manifest binding",
-      "instrument_root": ".",
+      "description": "Repaired 27-decision protocol with mandatory S6 exit and censoring rule and manifest binding. Frozen byte for byte at _frozen_instruments/v0.2 when v0.3 took the working tree; recognised hashes unchanged",
+      "instrument_root": "_frozen_instruments/v0.2",
       "required_decisions": 27,
       "stages": {
         "question": {
@@ -113,6 +113,64 @@
         ],
         "research_gate.py": [
           "3c6b9687aee39aa20aa0469b419d22bab7f69f3cb36af9e1ac53e02e4d7d6206"
+        ],
+        "agp_deterministic.py": [
+          "1154e79240ece38d67408d1e8a4174935c48e87882f51b8ea47049a94fde4351"
+        ]
+      }
+    },
+    "v0.3": {
+      "protocol_version": "v0.3",
+      "description": "27-decision protocol with required decision attribution, a bounded pre-scope feasibility register and a decision-digest-bound scope coherence review",
+      "instrument_root": ".",
+      "required_decisions": 27,
+      "stages": {
+        "question": {
+          "Q1": "unit of analysis",
+          "Q2": "the proposition, stated so it can fail",
+          "Q3": "the falsifier, dated and observable",
+          "Q4": "describe or score"
+        },
+        "scope": {
+          "S1": "population and denominator",
+          "S2": "inclusion and exclusion rule",
+          "S3": "as-of date and vintage policy",
+          "S4": "stop criterion",
+          "S5": "research mode per stage",
+          "S6": "exit and censoring rule"
+        },
+        "data": {
+          "D1": "what counts as primary here",
+          "D2": "custody policy",
+          "D3": "non-retrieval policy",
+          "D4": "second-source rule"
+        },
+        "digest": {
+          "G1": "extraction schema",
+          "G2": "new-field admission rule",
+          "G3": "controlled vocabulary",
+          "G4": "derived against reported",
+          "G5": "uncertainty form"
+        },
+        "draft": {
+          "R1": "the claim ladder",
+          "R2": "negative results retained",
+          "R3": "register and voice gates",
+          "R4": "conflict of interest"
+        },
+        "mint": {
+          "M1": "evidence floor met",
+          "M2": "ships against stays local",
+          "M3": "version and lineage",
+          "M4": "commitment gate"
+        }
+      },
+      "hashes": {
+        "DIVERGENCE_PROTOCOL.md": [
+          "e2956119cbfa9ae10dbddb2b907c1d150fde145db772a3df79634de0e9935425"
+        ],
+        "research_gate.py": [
+          "56d66fafb115b74ccc8bb782d146822734697e1936472a43d56e76457f9b6b57"
         ],
         "agp_deterministic.py": [
           "1154e79240ece38d67408d1e8a4174935c48e87882f51b8ea47049a94fde4351"
