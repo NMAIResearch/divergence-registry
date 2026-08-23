@@ -118,11 +118,12 @@ option that says nothing, whether or not a usable option sits beside it. A token
 empty records nothing at all and is skipped.
 
 **Decision attribution.** Under contract v0.3 every required row also carries `decided_by`: the
-exact model, harness and run identifier of whoever made the choice. The field exists in the v0.2
-register but is not enforced there, so a v0.2 project may leave it blank. A blank or placeholder
-`decided_by` fails the v0.3 gate. Attribution is what makes the scope coherence review below
-checkable for self-review, and what lets two runs be compared by decision-maker rather than by
-directory name.
+exact model, harness and run identifier of whoever made the choice, recorded as
+`model=...; harness=...; run=...`. An optional `role=...` label may follow. The field exists in the
+v0.2 register but is not enforced there, so a v0.2 project may leave it blank. A missing component,
+blank, placeholder or free-form role label fails the v0.3 gate. Attribution is what makes the scope
+coherence review below checkable for self-review, and what lets two sandboxed runs of the same model
+be distinguished without requiring a different laboratory for every trial.
 
 **Decision authority.** Within an approved project, an attributed runner may generate the available
 options and select among them, recording itself in `decided_by`. The researcher retains authority
@@ -240,9 +241,10 @@ register legitimately fills during stages 1 and 2.
 
 ### Scope coherence review
 
-Contract v0.3 only. Before stage 3 opens, a reviewer other than the runner reads the closed scope
-and records the review in `scope_review.json`. The review covers seven decision rows, `Q2`, `Q3`,
-`S1`, `S2`, `S3`, `S4` and `S6`, against six questions:
+Contract v0.3 only. Before stage 3 opens, a separate reviewer run reads the closed scope and records
+the review in `scope_review.json`. The reviewer may use the same model in a separate sandboxed run;
+cross-laboratory review is not required for each trial. The review covers seven decision rows,
+`Q2`, `Q3`, `S1`, `S2`, `S3`, `S4` and `S6`, against six questions:
 
 | Check | Question |
 |---|---|
@@ -258,11 +260,11 @@ review records what the reviewer found and stops there. It carries no acceptance
 an `unresolved` result stays in the record as the reviewer wrote it, and accepting it is a separate
 decision recorded in the scope approval below.
 
-**Reviewer identity.** The reviewer names the exact model, harness and run identifier that performed
-the review, and that name must survive normalisation. Case, spacing and punctuation are removed
-before the reviewer is compared with the decision maker, so an attribution consisting only of
-punctuation normalises to nothing, compares equal to nothing, and is refused. The same rule governs
-`decided_by` and `probed_by`. The gate establishes that an identity is present and mechanically
+**Reviewer identity.** The reviewer records `model=...; harness=...; run=...`, with an optional
+`role=...`. The same form governs `decided_by` and `probed_by`. Model, harness and run are compared
+after case, spacing and punctuation normalisation. Role is ignored: relabelling one run from
+`runner` to `reviewer` does not create a second run. Different run identifiers distinguish separate
+sandboxed runs of the same model. The gate establishes that an identity is present and mechanically
 comparable. It does not authenticate the actor.
 
 **Digest binding.** The review records the SHA-256 digest of each reviewed decision row. Run
@@ -273,10 +275,9 @@ scope from being reviewed, passed and then quietly rewritten.
 **Gate.** The `SCOPE_REVIEW` arm establishes that the record exists and parses, names a reviewer who
 is not the `decided_by` of any row reviewed, is dated no earlier than the decisions it covers,
 carries a current digest for each of the seven rows, and records a result and a note against each of
-the six checks. Reviewer and decision-maker are compared with case, spacing and punctuation removed,
-so respelling the same identifier does not make a runner into its own reviewer. It does not establish
-that `Q3` disconfirms `Q2` or that `S1` is observable. Those are the reviewer's calls, recorded here
-and not verified here.
+the six checks. Reviewer and decision-maker are compared by model, harness and run, with role labels
+ignored. It does not establish that `Q3` disconfirms `Q2` or that `S1` is observable. Those are the
+reviewer's calls, recorded here and not verified here.
 
 ### Scope approval
 
@@ -287,9 +288,11 @@ approval says what was accepted, and by whom.
 The record carries a fixed record type and schema version, the contract, the recorded authority
 `N.`, an ISO approval date no earlier than the review, a decision drawn from `proceed`, `hold` and
 `revise`, the exact set of review checks recorded as `fail` or `unresolved`, a traceable reference
-to the dated decision or handoff it stands for, and the SHA-256 digest of each file it binds:
-`decisions.csv`, `feasibility.csv` and `scope_review.json`. Run `research_gate.py PROJECT_DIR
---approval-digests` to print the digest block.
+to the dated decision or handoff it stands for, the SHA-256 digest of the closed question-and-scope
+projection `decisions.csv#question_scope`, and the SHA-256 digests of `feasibility.csv` and
+`scope_review.json`. Run `research_gate.py PROJECT_DIR --approval-digests` to print the digest block.
+The projection covers `Q1` to `Q4` and `S1` to `S6`. Later data, digest, draft and mint decisions can
+therefore be logged without rewriting the earlier approval.
 
 **Reference form.** A reference that cannot be followed records nothing, so the minimum shape is
 enforced: an ISO date that parses, and a retrievable route. A route is a path or filename naming one
@@ -304,13 +307,16 @@ what the approval implies.
 
 Stage 3 opens on `proceed` and on nothing else. A missing, malformed, stale or non-proceed approval
 fails closed, and an all-`unknown` feasibility register reaches stage 3 by this route or not at all.
-Editing any bound file changes its digest, so a scope that moves after approval needs a fresh
-approval rather than a preserved one. `--init` scaffolds `_scope_approval_template.json` and never
-writes an approved record: a tool that scaffolds a completed approval has approved the work itself.
+Editing any question or scope decision row, `feasibility.csv` or `scope_review.json` changes its
+bound digest, so a scope that moves after approval needs a fresh approval rather than a preserved
+one. Editing a later-stage decision row does not. `--init` scaffolds
+`_scope_approval_template.json` and never writes an approved record: a tool that scaffolds a
+completed approval has approved the work itself.
 
 **Gate.** The `SCOPE_APPROVAL` arm establishes that the record exists and parses, names the recorded
 authority, carries a closed decision value, accepts exactly the checks the review left failed or
-unresolved, names a traceable reference, and still matches the bytes of the three files it binds.
+unresolved, names a traceable reference, and still matches the closed scope projection and two
+files it binds.
 It does not establish who created the record. There is no signature and no external witness here,
 so the record is a recorded assertion bound to the bytes it approves, and binding it to the bytes is
 what limits the damage that assertion can do.
@@ -546,9 +552,9 @@ Three further arms run on contract v0.3 only:
 
 | Arm | What it enforces |
 |---|---|
-| `FEASIBILITY` | every probe carries a `probe_id` and a `source_name`, asks one of the five permitted questions, returns one of the four permitted outcome-free results with a reason against anything other than `available`, records where it looked through a usable url or an `evidence_locator`, names who ran it in a form that survives normalisation, is dated no later than the last scope decision, and holds any bytes it claims to hold at a `local_path` that resolves to a file inside the project, hashed from that resolved file; all five questions are answered by stage 3 |
-| `SCOPE_REVIEW` | the review record exists and parses, names a reviewer who survives normalisation and is not the decision-maker on any reviewed row, is dated no earlier than those rows, carries a current digest for each of the seven reviewed decisions, and records a result and a note against each of the six checks; acceptance recorded inside the review is refused |
-| `SCOPE_APPROVAL` | the approval record exists and parses, names the recorded authority, carries a decision from the closed set and opens stage 3 on `proceed` alone, accepts exactly the checks the review left failed or unresolved, names a reference carrying a parsable ISO date and a retrievable route, is dated no earlier than the review, and still matches the digests of `decisions.csv`, `feasibility.csv` and `scope_review.json` |
+| `FEASIBILITY` | every probe carries a `probe_id` and a `source_name`, asks one of the five permitted questions, returns one of the four permitted outcome-free results with a reason against anything other than `available`, records where it looked through a usable url or an `evidence_locator`, names the model, harness and run that performed it, is dated no later than the last scope decision, and holds any bytes it claims to hold at a `local_path` that resolves to a file inside the project, hashed from that resolved file; all five questions are answered by stage 3 |
+| `SCOPE_REVIEW` | the review record exists and parses, names a model, harness and run distinct from the decision-making run on every reviewed row, ignores role labels in that comparison, is dated no earlier than those rows, carries a current digest for each of the seven reviewed decisions, and records a result and a note against each of the six checks; acceptance recorded inside the review is refused |
+| `SCOPE_APPROVAL` | the approval record exists and parses, names the recorded authority, carries a decision from the closed set and opens stage 3 on `proceed` alone, accepts exactly the checks the review left failed or unresolved, names a reference carrying a parsable ISO date and a retrievable route, is dated no earlier than the review, and still matches the digests of `decisions.csv#question_scope`, `feasibility.csv` and `scope_review.json` |
 
 It also reports, without failing on them, the share of the register that could not be retrieved, any
 numeric token in the draft that appears nowhere in `claims.csv`, a draft that names no baseline or
@@ -571,11 +577,13 @@ fails the demo.
 - The v0.3 arms bind records to rows. They do not read meaning. `SCOPE_REVIEW` establishes that a
   reviewer other than the runner recorded a call against each check and that the call still binds
   to the rows it read. Whether the call is correct is a human judgement the gate does not hold.
-- Identity checks establish that an attribution is present and mechanically comparable. Nothing in
-  the toolchain authenticates an actor. `SCOPE_APPROVAL` establishes that a hash-bound record says
-  `N.` and matches the rows and the review it approves. It cannot establish that N. created it. The
-  binding limits what a false assertion survives: it covers the scope as it stood, and any edit to
-  a bound file requires a fresh approval.
+- Identity checks establish that model, harness and run are present and mechanically comparable.
+  A separate sandboxed run of the same model is permitted; a role-label change is not a separate
+  run. Nothing in the toolchain authenticates an actor. `SCOPE_APPROVAL` establishes that a
+  hash-bound record says `N.` and matches the rows and the review it approves. It cannot establish
+  that N. created it. The binding limits what a false assertion survives: it covers the
+  question-and-scope rows as they stood, and any edit to a bound scope item requires a fresh
+  approval.
 - The claim-level second-source rule establishes registered eligibility and recorded independence:
   the corroborating source exists, was obtained, sits outside tier 4 and 5, and shares no recorded
   origin with the primary source. It does not establish that the second source supports the

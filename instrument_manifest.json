@@ -167,10 +167,10 @@
       },
       "hashes": {
         "DIVERGENCE_PROTOCOL.md": [
-          "e2956119cbfa9ae10dbddb2b907c1d150fde145db772a3df79634de0e9935425"
+          "dcc484f300cfe22d607c90165a9211009a3c157fca9f39b2e419cefcf0bb1265"
         ],
         "research_gate.py": [
-          "56d66fafb115b74ccc8bb782d146822734697e1936472a43d56e76457f9b6b57"
+          "788c8212cc748421fe27286a7d69b6897647a24c550b963c8faf6f9a1d5442b1"
         ],
         "agp_deterministic.py": [
           "1154e79240ece38d67408d1e8a4174935c48e87882f51b8ea47049a94fde4351"

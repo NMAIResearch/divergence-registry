@@ -170,8 +170,8 @@ def write_rows(path, fieldnames, data):
         writer.writerows(data)
 
 
-AUDIT_RUNNER = "audit-runner:model-q harness:pytest run:audit-1"
-AUDIT_REVIEWER = "audit-reviewer:model-r harness:pytest run:audit-2"
+AUDIT_RUNNER = "model=model-q; harness=pytest; run=audit-1; role=runner"
+AUDIT_REVIEWER = "model=model-r; harness=pytest; run=audit-2; role=reviewer"
 SCOPE_CLOSE = "2026-08-14"
 PROBE_DATE = "2026-08-11"
 
@@ -314,7 +314,7 @@ def write_approval(root, approved_by=RG.SCOPE_APPROVAL_AUTHORITY, approval_date=
         "accepted_checks": list(accepted or []),
         "approval_reference": reference,
         "bound_files": {
-            name: hashlib.sha256((root / name).read_bytes()).hexdigest()
+            name: RG.approval_binding_digest(root, name)
             for name in RG.SCOPE_APPROVAL_BOUND_FILES
         } if bound is None else bound,
     })
@@ -345,6 +345,10 @@ def v03_cases(scratch, results):
          lambda r: set_decision(r, "S2", {"decided_by": "   "}))
     case("placeholder decided_by", "DECISIONS",
          lambda r: set_decision(r, "D1", {"decided_by": "n/a"}))
+    case("role-only decided_by", "DECISIONS",
+         lambda r: set_decision(r, "Q1", {
+             "decided_by": "Google Gemini 3.7 Flash runner",
+         }))
 
     case("feasibility register deleted", "FEASIBILITY",
          lambda r: (r / "feasibility.csv").unlink())
@@ -364,6 +368,10 @@ def v03_cases(scratch, results):
          lambda r: set_probe(r, "P2", {"local_path": "", "sha256": ""}))
     case("probe with no attribution", "FEASIBILITY",
          lambda r: set_probe(r, "P5", {"probed_by": ""}))
+    case("probe attribution missing run", "FEASIBILITY",
+         lambda r: set_probe(r, "P5", {
+             "probed_by": "model=model-q; harness=pytest; role=runner",
+         }))
     case("restricted route with no reason", "FEASIBILITY",
          lambda r: set_probe(r, "P1", {"result": "restricted", "notes": ""}))
     case("circular derivation left unanswered", "FEASIBILITY",
@@ -377,11 +385,28 @@ def v03_cases(scratch, results):
     case("runner reviews its own scope", "SCOPE_REVIEW",
          lambda r: write_review(r, reviewer=AUDIT_RUNNER, review_date=SCOPE_CLOSE))
     case("self-review disguised by case and spacing", "SCOPE_REVIEW",
-         lambda r: write_review(r, reviewer="  AUDIT-RUNNER:MODEL-Q   HARNESS:PYTEST run:audit-1 ",
+         lambda r: write_review(
+             r, reviewer=" MODEL=MODEL-Q; HARNESS=PYTEST; RUN=AUDIT-1; ROLE=REVIEWER ",
                                 review_date=SCOPE_CLOSE))
     case("self-review disguised by respelled punctuation", "SCOPE_REVIEW",
-         lambda r: write_review(r, reviewer="Audit Runner: Model Q, harness pytest, run audit 1",
+         lambda r: write_review(
+             r, reviewer="model=model q; harness=pytest; run=audit 1; role=reviewer",
                                 review_date=SCOPE_CLOSE))
+    case("role-only reviewer identity", "SCOPE_REVIEW",
+         lambda r: write_review(r, reviewer="Google Gemini 3.7 Flash reviewer",
+                                review_date=SCOPE_CLOSE))
+    case("same run relabelled as reviewer", "SCOPE_REVIEW",
+         lambda r: write_review(
+             r, reviewer="model=model-q; harness=pytest; run=audit-1; role=reviewer",
+             review_date=SCOPE_CLOSE))
+    case("same model in a separate reviewer run passes", None,
+         lambda r: (write_review(
+             r, reviewer="model=model-q; harness=pytest; run=audit-2; role=reviewer",
+             review_date=SCOPE_CLOSE), write_approval(r)))
+    case("reviewer identity missing run", "SCOPE_REVIEW",
+         lambda r: write_review(
+             r, reviewer="model=model-r; harness=pytest; role=reviewer",
+             review_date=SCOPE_CLOSE))
     case("reviewed decision edited after review", "SCOPE_REVIEW",
          lambda r: set_decision(r, "S3", {"chosen": "a different vintage policy"}))
     case("reviewed decision re-dated after review", "SCOPE_REVIEW",
@@ -430,8 +455,13 @@ def v03_cases(scratch, results):
     case("approval predating the review", "SCOPE_APPROVAL",
          lambda r: write_approval(r, approval_date="2026-08-01"))
     case("approval binding a digest that is not a digest", "SCOPE_APPROVAL",
-         lambda r: patch_json(r / RG.SCOPE_APPROVAL_FILE, ["bound_files", "decisions.csv"],
+         lambda r: patch_json(r / RG.SCOPE_APPROVAL_FILE,
+                              ["bound_files", RG.SCOPE_APPROVAL_SCOPE_BINDING],
                               "not-a-digest"))
+    case("approval carried past a question-row edit", "SCOPE_APPROVAL",
+         lambda r: set_decision(r, "Q1", {"chosen": "a different unit after approval"}))
+    case("approval survives a later-stage decision edit", None,
+         lambda r: set_decision(r, "D1", {"chosen": "a revised primary-source rule"}))
     case("approval carried past an edit to a bound register", "SCOPE_APPROVAL",
          lambda r: set_probe(r, "P1", {"notes": "Reachable, rechecked after approval."}))
     case("approval accepting a check the review did not fail", "SCOPE_APPROVAL",

@@ -430,7 +430,13 @@ SCOPE_APPROVAL_RECORD_TYPE = "scope_exception_approval"
 SCOPE_APPROVAL_AUTHORITY = "N."
 SCOPE_APPROVAL_DECISIONS = {"proceed", "hold", "revise"}
 SCOPE_APPROVAL_OPENS = "proceed"
-SCOPE_APPROVAL_BOUND_FILES = ["decisions.csv", "feasibility.csv", SCOPE_REVIEW_FILE]
+SCOPE_APPROVAL_SCOPE_BINDING = "decisions.csv#question_scope"
+SCOPE_APPROVAL_DECISION_IDS = (
+    list(CONTRACT_V0_3["question"]) + list(CONTRACT_V0_3["scope"])
+)
+SCOPE_APPROVAL_BOUND_FILES = [
+    SCOPE_APPROVAL_SCOPE_BINDING, "feasibility.csv", SCOPE_REVIEW_FILE
+]
 
 DECISION_DIGEST_FIELDS = [
     "decision_id", "stage", "question", "chosen", "alternatives", "rationale", "decided_date",
@@ -477,17 +483,36 @@ def unusable_value(value):
     return blank(value) or punctuation_only(value)
 
 
-def unidentifiable_actor(value):
-    """True when an attribution carries no identity the gate can compare.
+ACTOR_REQUIRED_FIELDS = ("model", "harness", "run")
+ACTOR_OPTIONAL_FIELDS = ("role",)
 
-    An attribution of '!!!' passed blank() and then normalised to the empty string, which silently
-    disabled the self-review comparison that reads it. An identity that normalises to nothing is
-    the same absence as a blank field and is refused as one.
 
-    What this establishes: an identity field is present and mechanically comparable. What it does
-    not establish: that the named actor is the actor that acted. Nothing here authenticates anyone.
+def actor_identity(value):
+    """Return the comparable model, harness and run tuple from a structured attribution.
+
+    The accepted form is `model=...; harness=...; run=...`, with an optional `role=...` field.
+    Role is deliberately excluded from the comparison: changing runner to reviewer does not create
+    a second run. The gate reads a recorded identity and does not authenticate it.
     """
-    return unusable_value(value)
+    if not isinstance(value, str) or unusable_value(value):
+        return None
+    parts = {}
+    allowed = set(ACTOR_REQUIRED_FIELDS + ACTOR_OPTIONAL_FIELDS)
+    for segment in value.split(";"):
+        key, separator, raw = segment.partition("=")
+        key = key.strip().lower()
+        raw = raw.strip()
+        if not separator or key not in allowed or key in parts or unusable_value(raw):
+            return None
+        parts[key] = raw
+    if any(key not in parts for key in ACTOR_REQUIRED_FIELDS):
+        return None
+    return tuple(normalise_actor(parts[key]) for key in ACTOR_REQUIRED_FIELDS)
+
+
+def unidentifiable_actor(value):
+    """True when model, harness and run cannot be compared mechanically."""
+    return actor_identity(value) is None
 
 
 ALLOWED_URL_SCHEMES = {"http", "https"}
@@ -633,6 +658,41 @@ def decision_row_digest(row):
     """
     payload = "\x1f".join((row.get(field) or "").strip() for field in DECISION_DIGEST_FIELDS)
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+def scope_decisions_digest(root):
+    """Digest only the closed question and scope rows in decisions.csv.
+
+    Data, digest, draft and mint decisions are recorded after scope approval. They must not stale
+    that approval. Any change to Q1-Q4 or S1-S6 still changes this projection and requires fresh
+    review and approval.
+    """
+    path = contained_path(root, "decisions.csv")
+    if path is None:
+        return None
+    with path.open(encoding="utf-8", newline="") as fh:
+        rows = list(csv.DictReader(fh))
+    by_id = {}
+    for row in rows:
+        decision_id = (row.get("decision_id") or "").strip().upper()
+        if decision_id in by_id:
+            return None
+        by_id[decision_id] = row
+    if any(decision_id not in by_id for decision_id in SCOPE_APPROVAL_DECISION_IDS):
+        return None
+    payload = "\n".join(
+        f"{decision_id}:{decision_row_digest(by_id[decision_id])}"
+        for decision_id in SCOPE_APPROVAL_DECISION_IDS
+    ) + "\n"
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+def approval_binding_digest(root, name):
+    """Return a digest for one scope-approval binding item, or None when unavailable."""
+    if name == SCOPE_APPROVAL_SCOPE_BINDING:
+        return scope_decisions_digest(root)
+    path = contained_path(root, name)
+    return file_sha256(path) if path is not None else None
 
 
 def parse_iso_date(value):
@@ -897,11 +957,11 @@ def arm_decisions(rows, through, report, required_schema=CONTRACT_V0_2, contract
         elif contract_name in {"v0.2", "v0.3"} and parse_iso_date(r["decided_date"]) is None:
             report.check(False, f"{did}: decided_date must be an ISO date", "DECISIONS")
         if contract_name == "v0.3" and unidentifiable_actor(r.get("decided_by")):
-            report.check(False, f"{did}: no usable decided_by. v0.3 requires the exact model, "
-                                f"harness and run identifier of whoever made this choice. An "
-                                f"attribution that is blank, a placeholder, or punctuation that "
-                                f"normalises to nothing cannot be reviewed for self-review or "
-                                f"compared across runs.", "DECISIONS")
+            report.check(False, f"{did}: no comparable decided_by. Use "
+                                f"'model=...; harness=...; run=...' with an optional "
+                                f"'role=...'. v0.3 compares the recorded run identity and ignores "
+                                f"role labels, so changing runner to reviewer cannot manufacture "
+                                f"a second run.", "DECISIONS")
 
     extra = sorted(set(seen) - set(required) - {""})
     if extra:
@@ -1336,10 +1396,9 @@ def arm_feasibility(rows, root, report, decisions=None, required=True):
             report.check(False, f"{pid}: no source_name. A probe is about a named source.",
                          "FEASIBILITY")
         if unidentifiable_actor(r["probed_by"]):
-            report.check(False, f"{pid}: no usable probed_by. Record the exact model, harness and "
-                                f"run identifier that ran the probe. An attribution that is blank, "
-                                f"a placeholder, or punctuation that normalises to nothing names "
-                                f"nobody.", "FEASIBILITY")
+            report.check(False, f"{pid}: no comparable probed_by. Use "
+                                f"'model=...; harness=...; run=...' with an optional "
+                                f"'role=...'.", "FEASIBILITY")
 
         question = (r["question"] or "").strip()
         if question not in FEASIBILITY_QUESTIONS:
@@ -1500,11 +1559,10 @@ def arm_scope_review(root, decisions, report):
 
     reviewer = record.get("reviewer")
     if not isinstance(reviewer, str) or unidentifiable_actor(reviewer):
-        report.check(False, "no usable reviewer recorded. The review names the exact model, "
-                            "harness and run identifier that performed it. A reviewer that is "
-                            "blank, a placeholder, or punctuation that normalises to nothing "
-                            "cannot be compared against the decision maker, and the self-review "
-                            "control silently does not run.", "SCOPE_REVIEW")
+        report.check(False, "no comparable reviewer recorded. Use "
+                            "'model=...; harness=...; run=...' with an optional 'role=...'. "
+                            "The run identifier distinguishes sandboxed runs; role labels do not.",
+                     "SCOPE_REVIEW")
         reviewer = ""
 
     review_date = None
@@ -1533,7 +1591,7 @@ def arm_scope_review(root, decisions, report):
             report.check(False, f"reviewed_decisions must cover exactly "
                                 f"{', '.join(SCOPE_REVIEW_DECISIONS)}; it covers "
                                 f"{', '.join(sorted(got)) or 'nothing'}", "SCOPE_REVIEW")
-        reviewer_key = normalise_actor(reviewer)
+        reviewer_key = actor_identity(reviewer)
         for did in SCOPE_REVIEW_DECISIONS:
             recorded = None
             for k, v in reviewed.items():
@@ -1557,7 +1615,7 @@ def arm_scope_review(root, decisions, report):
                                     f"match the current row, which digests to {actual[:12]}.... "
                                     f"The row changed after the review, so the review no longer "
                                     f"binds. Re-review and re-record.", "SCOPE_REVIEW")
-            if reviewer_key and reviewer_key == normalise_actor(row.get("decided_by")):
+            if reviewer_key and reviewer_key == actor_identity(row.get("decided_by")):
                 report.check(False, f"{did}: the reviewer '{reviewer.strip()}' is the decision "
                                     f"maker on this row. The scope review is performed by someone "
                                     f"other than the runner who made the choice.", "SCOPE_REVIEW")
@@ -1618,8 +1676,9 @@ def arm_scope_approval(root, exceptional, report):
 
     What this arm establishes: a record exists that names the fixed recorded authority, carries a
     closed decision value, lists exactly the review checks the reviewer left failed or unresolved,
-    and still matches the bytes of the three files it was written against. Editing any bound file
-    invalidates it.
+    and still matches the closed question-and-scope decision projection and the two files it was
+    written against. Editing any bound scope row or either bound file invalidates it. Later-stage
+    decision rows do not.
 
     What it does not establish: who wrote the record. There is no signature and no external
     witness here, so the gate can say the record says 'N.' and that it matches what was reviewed.
@@ -1707,12 +1766,11 @@ def arm_scope_approval(root, exceptional, report):
                 report.check(False, f"bound_files['{name}']: digest must be 64 lowercase "
                                     f"hexadecimal characters", "SCOPE_APPROVAL")
                 continue
-            target = contained_path(root, name)
-            if target is None:
-                report.check(False, f"bound_files names '{name}', which is not in the project",
-                             "SCOPE_APPROVAL")
+            actual = approval_binding_digest(root, name)
+            if actual is None:
+                report.check(False, f"bound_files names '{name}', which cannot be resolved from "
+                                    f"the project", "SCOPE_APPROVAL")
                 continue
-            actual = file_sha256(target)
             if recorded.strip() != actual:
                 report.check(False, f"{name} has changed since the approval: approved "
                                     f"{recorded.strip()[:12]}..., current {actual[:12]}.... The "
@@ -2046,22 +2104,23 @@ def scope_approval_template():
                                "Empty where the review recorded neither.",
             "approval_reference": "The dated decision or handoff this record stands for. Carry an "
                                   "ISO date and the path, filename or URL of that record.",
-            "bound_files": "Run --approval-digests. Editing any bound file invalidates the "
-                           "approval.",
+            "bound_files": "Run --approval-digests. Editing any question or scope decision row, "
+                           "feasibility.csv or scope_review.json invalidates the approval. Later "
+                           "decision stages do not.",
         },
     }
 
 
 def approval_digests(root):
-    """Print the bound-file digest block for scope_approval.json."""
+    """Print the stable scope-bound digest block for scope_approval.json."""
     root = Path(root)
-    paths = {name: contained_path(root, name) for name in SCOPE_APPROVAL_BOUND_FILES}
-    missing = [name for name, path in paths.items() if path is None]
+    digests = {name: approval_binding_digest(root, name)
+               for name in SCOPE_APPROVAL_BOUND_FILES}
+    missing = [name for name, digest in digests.items() if digest is None]
     if missing:
-        print(f"FAIL: {', '.join(missing)} missing or outside the project in {root}")
+        print(f"FAIL: {', '.join(missing)} missing, ambiguous or outside the project in {root}")
         return 1
-    block = {name: file_sha256(paths[name]) for name in SCOPE_APPROVAL_BOUND_FILES}
-    print(json.dumps({"bound_files": block}, indent=2))
+    print(json.dumps({"bound_files": digests}, indent=2))
     return 0
 
 
@@ -2430,6 +2489,9 @@ def demo():
              lambda p: rewrite_csv(p / "decisions.csv", "decision_id", "Q1", {"decided_by": ""})),
             ("DECISIONS", "placeholder decided_by on a required v0.3 row",
              lambda p: rewrite_csv(p / "decisions.csv", "decision_id", "S4", {"decided_by": "TBD"})),
+            ("DECISIONS", "role-only decided_by on a required v0.3 row",
+             lambda p: rewrite_csv(p / "decisions.csv", "decision_id", "Q1",
+                                   {"decided_by": "Google Gemini 3.7 Flash runner"})),
             # The register columns are a MANIFEST concern, which is where read_csv reports them.
             ("MANIFEST", "pre-attribution eight-column decisions.csv under v0.3",
              lambda p: drop_csv_column(p / "decisions.csv", "decided_by")),
@@ -2496,6 +2558,10 @@ def demo():
                                    {"local_path": "", "sha256": ""})),
             ("FEASIBILITY", "unattributed probe",
              lambda p: rewrite_csv(p / "feasibility.csv", "probe_id", "F3", {"probed_by": ""})),
+            ("FEASIBILITY", "probe attribution missing its run identifier",
+             lambda p: rewrite_csv(
+                 p / "feasibility.csv", "probe_id", "F3",
+                 {"probed_by": "model=model-a; harness=cli; role=runner"})),
             ("FEASIBILITY", "unavailable route with no reason recorded",
              lambda p: rewrite_csv(p / "feasibility.csv", "probe_id", "F1",
                                    {"result": "unavailable", "notes": ""})),
@@ -2514,11 +2580,20 @@ def demo():
             ("SCOPE_REVIEW", "the runner reviewing its own scope",
              lambda p: write_scope_review(p, reviewer=V03_RUNNER, review_date="2026-08-14")),
             ("SCOPE_REVIEW", "the runner reviewing its own scope under different casing",
-             lambda p: write_scope_review(p, reviewer="  RUNNER:MODEL-A   harness:cli run:c3-b-001 ",
+             lambda p: write_scope_review(
+                 p, reviewer=" MODEL=MODEL-A; HARNESS=CLI; RUN=C3-B-001; ROLE=REVIEWER ",
                                           review_date="2026-08-14")),
             ("SCOPE_REVIEW", "the runner reviewing its own scope behind respelled punctuation",
-             lambda p: write_scope_review(p, reviewer="Runner: Model-A, harness CLI, run c3 b 001",
+             lambda p: write_scope_review(
+                 p, reviewer="model=model a; harness=cli; run=c3 b 001; role=reviewer",
                                           review_date="2026-08-14")),
+            ("SCOPE_REVIEW", "a role label offered without model, harness and run identity",
+             lambda p: write_scope_review(
+                 p, reviewer="Google Gemini 3.7 Flash reviewer", review_date="2026-08-14")),
+            ("SCOPE_REVIEW", "the same run relabelled from runner to reviewer",
+             lambda p: write_scope_review(
+                 p, reviewer="model=model-a; harness=cli; run=c3-b-001; role=reviewer",
+                 review_date="2026-08-14")),
             ("SCOPE_REVIEW", "a reviewed decision row edited after the review",
              lambda p: rewrite_csv(p / "decisions.csv", "decision_id", "S1",
                                    {"chosen": "a different population after the review"})),
@@ -2593,7 +2668,11 @@ def demo():
             ("SCOPE_APPROVAL", "an approval dated before the review it accepts",
              lambda p: write_scope_approval(p, approval_date="2026-08-10")),
             ("SCOPE_APPROVAL", "an approval that covers only some of the files it binds",
-             lambda p: write_scope_approval(p, bound={"decisions.csv": "0" * 64})),
+             lambda p: write_scope_approval(
+                 p, bound={SCOPE_APPROVAL_SCOPE_BINDING: "0" * 64})),
+            ("SCOPE_APPROVAL", "a question row edited after approval",
+             lambda p: rewrite_csv(p / "decisions.csv", "decision_id", "Q1",
+                                   {"chosen": "a different unit after approval"})),
             # A bound file edited after approval, seeded where no other arm reads the change, so
             # the staleness rule is exercised on its own.
             ("SCOPE_APPROVAL", "a bound register edited after the approval was recorded",
@@ -2984,8 +3063,8 @@ def demo():
         shutil.rmtree(tmp, ignore_errors=True)
 
 
-V03_RUNNER = "runner:model-a harness:cli run:c3-b-001"
-V03_REVIEWER = "reviewer:model-b harness:cli run:review-014"
+V03_RUNNER = "model=model-a; harness=cli; run=c3-b-001; role=runner"
+V03_REVIEWER = "model=model-b; harness=cli; run=review-014; role=reviewer"
 
 
 def build_v03_project(root, runner=V03_RUNNER, reviewer=V03_REVIEWER):
@@ -3128,9 +3207,7 @@ def write_scope_approval(root, approved_by=SCOPE_APPROVAL_AUTHORITY, approval_da
                          reference=("Demo fixture, standing for the decision of 2026-08-14 "
                                     "recorded in handoffs/worked_subject_v03_approval.md"),
                          bound=None):
-    """Write a scope approval bound to the files as they stand. Fixtures re-run it after editing a
-    bound file, so a digest mismatch has to be seeded deliberately rather than arriving by
-    accident."""
+    """Write a scope approval bound to the closed scope records as they stand."""
     root = Path(root)
     record = {
         "record_type": SCOPE_APPROVAL_RECORD_TYPE,
@@ -3141,7 +3218,8 @@ def write_scope_approval(root, approved_by=SCOPE_APPROVAL_AUTHORITY, approval_da
         "decision": decision,
         "accepted_checks": list(accepted or []),
         "approval_reference": reference,
-        "bound_files": {name: file_sha256(root / name) for name in SCOPE_APPROVAL_BOUND_FILES}
+        "bound_files": {name: approval_binding_digest(root, name)
+                        for name in SCOPE_APPROVAL_BOUND_FILES}
                        if bound is None else bound,
     }
     (root / SCOPE_APPROVAL_FILE).write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
