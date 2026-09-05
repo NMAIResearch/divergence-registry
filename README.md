@@ -100,9 +100,9 @@ listed in the protocol.
 ## AI assistance, conflicts and limitations
 
 This project was produced through an AI-assisted workflow directed and reviewed by the author. AI
-systems supported tasks such as research, drafting, coding and review. The systems used are
-recorded in the repository's commit metadata. They are disclosed contributors to the workflow;
-responsibility for the released work remains with the author.
+systems supported tasks such as research, drafting, coding and review. The systems used are recorded
+in the repository's commit metadata. They are disclosed contributors to the workflow; responsibility
+for the released work remains with the author.
 
 An assisting system may be supplied by an organisation discussed in the work, and model review may
 cover material produced elsewhere in the same workflow. Model review is therefore supporting
