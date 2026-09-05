@@ -8,3 +8,29 @@ TESTING_CANDIDATES.md
 V0_FINDINGS.md
 _maintainer_baseline/
 trial_*/
+
+# Retrieved source bytes stay local. Publisher terms permit personal, non-commercial
+# use only and prohibit republishing. The register row carries the official URL,
+# access date, retrieval status and SHA-256, which is the provenance that travels.
+evidence/
+
+# Working material, not part of the instrument.
+NEXT_fragment_*.md
+source_leads_*.csv
+
+# The paired-arm candidate route is developed separately and is not released here.
+# Withheld pending repair of defects found in independent review, among them a
+# non-atomic attempt claim and paths that could be relocated by symlinks.
+paired_arms.py
+tests/test_paired_arms.py
+AGENTIC_BASELINE_PROTOCOL.md
+
+# The combined lifecycle is developed separately and is not released here. It
+# invokes a claim checker that is not distributed with it, so a copy in this
+# repository could not be run from a clone.
+research_lifecycle.py
+analysis_sandbox.py
+lifecycle_claim.schema.json
+tests/test_research_lifecycle.py
+RESEARCH_LIFECYCLE.md
+requirements.txt

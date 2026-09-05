@@ -2,8 +2,20 @@
 
 **A six-stage method for logging research decisions and checking source-grounded outputs.**
 
-**Status.** Release candidate dated 21 August 2026. No subject has completed v0.2 or v0.3 end to
-end. The protocol therefore remains on trial.
+**AI disclosure.** The author directed this work throughout and retained every research and release
+decision, including what this release withholds and what it claims. Anthropic Claude Opus 5 assisted
+with implementation, repair and release preparation for v0.3. OpenAI GPT-5.6 Sol assisted with
+earlier v0.3 implementation and performed the independent acceptance review of this release. Google
+Gemini 3.7 Flash assisted with maintenance and trial orchestration in the v0.2 era. Models are not
+authors.
+
+**Status.** Release candidate dated 21 August 2026, retained on 24 August 2026 as the decision-record
+component of a combined lifecycle that is developed separately and is not released here. Trial C11
+reached a corrected scope
+and bound pre-analysis plan, then stopped before renewed scope approval or Stage 3 outcome
+collection. No subject has completed v0.2 or v0.3 end to end. Published v0.2-rc2 remains the
+historical release. OpenDFM/Xcientist was assessed and rejected for the current workflow. No
+baseline comparison has been run.
 
 **Contract versions.** Three contracts are recognised. Contract v0.1 is the original 26-decision
 trial protocol and is selected only by explicit request. Contract v0.2 is the 27-decision protocol
@@ -130,7 +142,10 @@ options and select among them, recording itself in `decided_by`. The researcher 
 over whether the candidate is worth running, whether an access, cost, legal or ethical condition is
 acceptable, whether an unresolved reviewer finding is accepted, whether an arm proceeds after a
 material rescope, and every commitment under `M4`. Agreement between two runners is not validation
-of either.
+of either. A combined-lifecycle project may carry `authority_policy.json`. That policy can allow a
+deterministic controller to record a clean, all-pass scope review without adding a third
+model judgement. It cannot delegate acceptance of a failed or unresolved scope check. Standalone
+v0.3 projects without that policy retain the researcher-only approval rule.
 
 ### Stage 1: Question
 
@@ -285,8 +300,9 @@ Contract v0.3 only. Stage 3 opens on the researcher's recorded decision to proce
 `scope_approval.json` and separate from the review it reads. The review says what was found. The
 approval says what was accepted, and by whom.
 
-The record carries a fixed record type and schema version, the contract, the recorded authority
-`N.`, an ISO approval date no earlier than the review, a decision drawn from `proceed`, `hold` and
+The record carries a fixed record type and schema version, the contract, the recorded scope-approval
+authority `NM AI Research` (the label `N.` is still accepted for projects opened under it), an ISO
+approval date no earlier than the review, a decision drawn from `proceed`, `hold` and
 `revise`, the exact set of review checks recorded as `fail` or `unresolved`, a traceable reference
 to the dated decision or handoff it stands for, the SHA-256 digest of the closed question-and-scope
 projection `decisions.csv#question_scope`, and the SHA-256 digests of `feasibility.csv` and
@@ -580,8 +596,9 @@ fails the demo.
 - Identity checks establish that model, harness and run are present and mechanically comparable.
   A separate sandboxed run of the same model is permitted; a role-label change is not a separate
   run. Nothing in the toolchain authenticates an actor. `SCOPE_APPROVAL` establishes that a
-  hash-bound record says `N.` and matches the rows and the review it approves. It cannot establish
-  that N. created it. The binding limits what a false assertion survives: it covers the
+  hash-bound record names the approving authority and matches the rows and the review it approves.
+  It cannot establish that the named authority created it. The binding limits what a false assertion
+  survives: it covers the
   question-and-scope rows as they stood, and any edit to a bound scope item requires a fresh
   approval.
 - The claim-level second-source rule establishes registered eligibility and recorded independence:

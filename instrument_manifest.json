@@ -109,7 +109,8 @@
       },
       "hashes": {
         "DIVERGENCE_PROTOCOL.md": [
-          "3afa5611decfbdc29b3dd6aac87846fb6ee1dde007565953f5852417659fa6e0"
+          "3afa5611decfbdc29b3dd6aac87846fb6ee1dde007565953f5852417659fa6e0",
+          "c2d2bb6dd8fa7076e9f2a1a78e0f38b73a9ceff4a4fec80ae4bb5e97c86d869f"
         ],
         "research_gate.py": [
           "3c6b9687aee39aa20aa0469b419d22bab7f69f3cb36af9e1ac53e02e4d7d6206"
@@ -167,10 +168,10 @@
       },
       "hashes": {
         "DIVERGENCE_PROTOCOL.md": [
-          "dcc484f300cfe22d607c90165a9211009a3c157fca9f39b2e419cefcf0bb1265"
+          "cf88d736d30e2f509f036911976f40c2bbd03551324e17c9bc449b49e841487e"
         ],
         "research_gate.py": [
-          "788c8212cc748421fe27286a7d69b6897647a24c550b963c8faf6f9a1d5442b1"
+          "47611d3450c14a32ec58b2ec863db08d14db3377a3f01c40015471ccf0f6030c"
         ],
         "agp_deterministic.py": [
           "1154e79240ece38d67408d1e8a4174935c48e87882f51b8ea47049a94fde4351"

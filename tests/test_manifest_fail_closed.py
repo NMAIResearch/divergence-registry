@@ -17,6 +17,7 @@ import hashlib
 import importlib.util
 import io
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -613,6 +614,8 @@ def v03_cases(scratch, results):
                     set_source(r, "record", {"local_path": "../outside_the_project.txt"})))
     case("a held local_path behind a symlink resolving outside the project", "SOURCES",
          escaping_symlink)
+    case("a held local_path behind an in-project symlink reached through a parent traversal",
+         "SOURCES", traversal_symlink_source)
 
     case("an approval reference whose route is only separators", "SCOPE_APPROVAL",
          lambda r: write_approval(r, reference="2026-08-21 ///"))
@@ -633,6 +636,8 @@ def v03_cases(scratch, results):
          lambda r: escaping_probe(r, "../outside_the_project.txt"))
     case("probe custody claimed behind a symlink resolving outside the project", "FEASIBILITY",
          escaping_probe_symlink)
+    case("probe custody claimed behind an in-project symlink reached through a parent traversal",
+         "FEASIBILITY", traversal_symlink_probe)
 
     # One URL predicate governs the source register, the approval reference and the feasibility
     # evidence route, so each syntactic escape is seeded on an arm that reads it through that
@@ -686,6 +691,10 @@ def v03_cases(scratch, results):
          escaping_corroborator_symlink)
     case("a claim leaning on a corroborator behind an escaping symlink", "CLAIMS",
          escaping_corroborator_symlink)
+    case("a corroborator held behind an in-project symlink reached through a parent traversal",
+         "SOURCES", traversal_symlink_corroborator)
+    case("a claim leaning on a corroborator behind a traversal-reached symlink", "CLAIMS",
+         traversal_symlink_corroborator)
 
 
 def restatement(source_id, origin, tier="3"):
@@ -818,6 +827,45 @@ def escaping_corroborator_symlink(root):
         link.unlink()
     link.symlink_to(stray_bytes(root))
     escaping_corroborator(root, "sources/corroborator_escape.txt")
+
+
+def traversal_link(root, name):
+    """Create an in-project symlink reachable only through a parent traversal.
+
+    The target is real, inside the project, and its bytes are recorded honestly, so
+    the row can be refused for its path shape and for nothing else. An earlier
+    containment repair skipped '..' without moving its cursor, so 'hop/../link'
+    tested a path that does not exist while the link itself went unexamined.
+    """
+    base = Path(root)
+    (base / "hop").mkdir(exist_ok=True)
+    target = base / "sources" / f"{name}_target.txt"
+    target.write_text(f"held bytes for {name}\n", encoding="utf-8")
+    link = base / "sources" / f"{name}_link.txt"
+    if link.exists() or link.is_symlink():
+        link.unlink()
+    link.symlink_to(target)
+    digest = hashlib.sha256(target.read_bytes()).hexdigest()
+    return f"hop/../sources/{name}_link.txt", digest
+
+
+def traversal_symlink_source(root):
+    """Hold a source through a traversal-reached in-project symlink with honest bytes."""
+    local_path, digest = traversal_link(root, "record")
+    set_source(root, "record", {"local_path": local_path, "sha256": digest})
+
+
+def traversal_symlink_probe(root):
+    """Hold probe custody through a traversal-reached in-project symlink."""
+    local_path, digest = traversal_link(root, "probe")
+    set_probe(root, "P2", {"local_path": local_path, "sha256": digest})
+    write_approval(root)
+
+
+def traversal_symlink_corroborator(root):
+    """Hold the corroborating source through a traversal-reached in-project symlink."""
+    local_path, digest = traversal_link(root, "corroborator")
+    set_source(root, "audit", {"url": "", "local_path": local_path, "sha256": digest})
 
 
 def cited_locator(root, url, source_id="release"):
@@ -968,10 +1016,100 @@ def check_verdict_logic():
     assert not ARM_LINE.match("FAIL: release catalogue is not valid:")
 
 
+def check_scope_authority_contract():
+    """The public authority value is accepted, the retained legacy value is accepted, nothing else is.
+
+    The contract value moved from an internal label to the public identity. The
+    legacy value stays accepted so approvals recorded before the change keep
+    validating and are not re-stamped. This is the replacement negative test for
+    that boundary: widening acceptance to one extra recorded value must not
+    widen it to any other actor.
+    """
+    assert RG.SCOPE_APPROVAL_AUTHORITY == "NM AI Research"
+    assert RG.LEGACY_SCOPE_APPROVAL_AUTHORITIES == ("N.",)
+    assert RG.is_scope_approval_authority("NM AI Research")
+    assert RG.is_scope_approval_authority("N."), (
+        "an approval recorded before the public identifier was adopted must still validate")
+    assert RG.is_scope_approval_authority("N"), (
+        "normalise_actor treats 'N' and 'N.' as the same recorded authority")
+    for rejected in (
+        "NM AI Researcher",
+        "NM AI",
+        "the researcher",
+        "the reviewer",
+        AUDIT_REVIEWER,
+        "model=claude-opus-5; harness=cli; run=r1; role=runner",
+        "!!!",
+        "",
+        None,
+        123,
+    ):
+        assert not RG.is_scope_approval_authority(rejected), (
+            f"{rejected!r} is not the scope-approval authority and must not be accepted")
+
+
+def check_lexical_symlink_refusal():
+    """A symlink at any component under root is refused, and real paths still pass.
+
+    contained_path() resolves before returning, so a caller that then asks
+    is_symlink() inspects the target and never sees a link. The refusal must
+    therefore happen lexically, before resolution. Both the real defect and the
+    valid shape are covered here: a same-byte internal link is as unacceptable as
+    an escaping one, and a legitimate nested file must still resolve.
+    """
+    scratch = Path(tempfile.mkdtemp(prefix="lexical_symlink_"))
+    outside = Path(tempfile.mkdtemp(prefix="lexical_symlink_outside_"))
+    try:
+        (scratch / "real.txt").write_text("same bytes\n", encoding="utf-8")
+        (scratch / "other.txt").write_text("same bytes\n", encoding="utf-8")
+        (scratch / "nested").mkdir()
+        (scratch / "nested" / "leaf.txt").write_text("leaf\n", encoding="utf-8")
+        (outside / "external.txt").write_text("external\n", encoding="utf-8")
+        os.symlink(scratch / "other.txt", scratch / "internal_link.txt")
+        os.symlink(outside / "external.txt", scratch / "external_link.txt")
+        os.symlink(scratch / "nested", scratch / "nested_link")
+
+        assert RG.contained_path(scratch, "real.txt") is not None, (
+            "a regular held file must still resolve")
+        assert RG.contained_path(scratch, "nested/leaf.txt") is not None, (
+            "a real nested path must still resolve")
+        assert RG.contained_path(scratch, "internal_link.txt") is None, (
+            "a same-byte symlink to another file inside the project is still a symlink")
+        assert RG.contained_path(scratch, "external_link.txt") is None, (
+            "a symlink whose target escapes the project must be refused")
+        assert RG.contained_path(scratch, "nested_link/leaf.txt") is None, (
+            "a symlinked parent component relocates the leaf and must be refused")
+
+        # The bypass an earlier repair left open: skipping '..' without moving the
+        # cursor tested a path that does not exist while the real link went unseen.
+        (scratch / "hop").mkdir()
+        assert RG.contained_path(scratch, "hop/../internal_link.txt") is None, (
+            "a symlink reached after a parent traversal must be refused")
+        assert RG.contained_path(scratch, "nested/../internal_link.txt") is None, (
+            "traversal through a real directory must not conceal the link either")
+        assert RG.contained_path(scratch, "hop/../nested/leaf.txt") is None, (
+            "parent traversal is refused outright, even where it reaches a real file")
+        assert RG.contained_path(scratch, "../etc/passwd") is None, (
+            "an escaping traversal must be refused")
+        assert RG.contained_path(scratch, "/etc/passwd") is None, (
+            "an absolute path is not a project-relative register entry")
+
+        assert RG.lexically_unsafe(scratch, "internal_link.txt")
+        assert RG.lexically_unsafe(scratch, "hop/../internal_link.txt")
+        assert RG.lexically_unsafe(scratch, "/etc/passwd")
+        assert not RG.lexically_unsafe(scratch, "nested/leaf.txt")
+        assert not RG.lexically_unsafe(scratch, "./nested/leaf.txt")
+    finally:
+        shutil.rmtree(scratch, ignore_errors=True)
+        shutil.rmtree(outside, ignore_errors=True)
+
+
 def main():
     scratch = Path(tempfile.mkdtemp(prefix="v02_independent_audit_"))
     results = []
     check_verdict_logic()
+    check_scope_authority_contract()
+    check_lexical_symlink_refusal()
     try:
         for filename in ("DIVERGENCE_PROTOCOL.md", "research_gate.py", "agp_deterministic.py"):
             tool_dir = scratch / f"mutated_{filename.replace('.', '_')}"

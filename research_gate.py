@@ -425,9 +425,28 @@ SCOPE_APPROVAL_FILE = "scope_approval.json"
 SCOPE_APPROVAL_TEMPLATE_FILE = "_scope_approval_template.json"
 SCOPE_APPROVAL_SCHEMA_VERSION = "1.0"
 SCOPE_APPROVAL_RECORD_TYPE = "scope_exception_approval"
-# The one recorded authority the gate accepts. Compared with normalise_actor, so 'N' and 'N.' are
-# the same authority and 'the reviewer' is not.
-SCOPE_APPROVAL_AUTHORITY = "N."
+# The recorded authority the gate accepts, as the public contract value. Compared with
+# normalise_actor, so 'the reviewer' is not the authority.
+SCOPE_APPROVAL_AUTHORITY = "NM AI Research"
+# Approvals recorded before the public identifier was adopted used an internal label. They stay
+# valid so historical records are not re-stamped. Nothing outside this set is accepted.
+LEGACY_SCOPE_APPROVAL_AUTHORITIES = ("N.",)
+
+
+def is_scope_approval_authority(value):
+    """Return whether a recorded actor is the scope-approval authority.
+
+    The canonical public value and the retained legacy value both qualify. Any
+    other actor, including a reviewer, runner or model, does not.
+    """
+    if not isinstance(value, str):
+        return False
+    recorded = normalise_actor(value)
+    return any(
+        recorded == normalise_actor(name)
+        for name in (SCOPE_APPROVAL_AUTHORITY, *LEGACY_SCOPE_APPROVAL_AUTHORITIES)
+    )
+AUTOMATIC_CLEAN_SCOPE_APPROVER = "controller=research_lifecycle.py; rule=clean_scope_review"
 SCOPE_APPROVAL_DECISIONS = {"proceed", "hold", "revise"}
 SCOPE_APPROVAL_OPENS = "proceed"
 SCOPE_APPROVAL_SCOPE_BINDING = "decisions.csv#question_scope"
@@ -437,6 +456,9 @@ SCOPE_APPROVAL_DECISION_IDS = (
 SCOPE_APPROVAL_BOUND_FILES = [
     SCOPE_APPROVAL_SCOPE_BINDING, "feasibility.csv", SCOPE_REVIEW_FILE
 ]
+AUTHORITY_POLICY_FILE = "authority_policy.json"
+DELEGATED_SCOPE_PERMISSION = "clean_scope_approval"
+AUTOMATIC_CLEAN_SCOPE_PERMISSION = "automatic_clean_scope_open"
 
 DECISION_DIGEST_FIELDS = [
     "decision_id", "stage", "question", "chosen", "alternatives", "rationale", "decided_date",
@@ -515,6 +537,112 @@ def unidentifiable_actor(value):
     return actor_identity(value) is None
 
 
+def actor_model_family(value):
+    """Return normalised model-name tokens from a structured actor record."""
+    identity = actor_identity(value)
+    return set(identity[0].split()) if identity else set()
+
+
+def delegated_scope_authority(root, approved_by, exceptional):
+    """Return whether a project policy permits this recorded clean-scope approver.
+
+    The policy and actor fields are records, not authenticated identities. Delegation applies only
+    when every scope check passed and the approver is a distinct recorded run from the scope
+    decision makers and reviewer.
+    """
+    if exceptional:
+        return False, "delegated approval cannot accept a failed or unresolved scope check"
+    policy_path = contained_path(root, AUTHORITY_POLICY_FILE)
+    if policy_path is None:
+        return False, f"{AUTHORITY_POLICY_FILE} is absent or outside the project"
+    try:
+        policy = json.loads(policy_path.read_text(encoding="utf-8"))
+    except Exception as exc:
+        return False, f"{AUTHORITY_POLICY_FILE} is malformed: {exc}"
+    if not isinstance(policy, dict):
+        return False, f"{AUTHORITY_POLICY_FILE} root must be an object"
+    if policy.get("record_type") != "research_authority_policy":
+        return False, f"{AUTHORITY_POLICY_FILE} record_type is invalid"
+    if policy.get("schema_version") != "1.0" or policy.get("contract") != "combined-lifecycle-v1":
+        return False, f"{AUTHORITY_POLICY_FILE} contract or schema version is invalid"
+    owner = policy.get("policy_owner") if isinstance(policy.get("policy_owner"), str) else ""
+    if not is_scope_approval_authority(owner):
+        return False, f"{AUTHORITY_POLICY_FILE} does not name {SCOPE_APPROVAL_AUTHORITY} as policy owner"
+    permissions = policy.get("delegated_permissions")
+    if not isinstance(permissions, list) or DELEGATED_SCOPE_PERMISSION not in permissions:
+        return False, f"{AUTHORITY_POLICY_FILE} does not delegate {DELEGATED_SCOPE_PERMISSION}"
+    allowed = policy.get("allowed_model_families")
+    denied = policy.get("excluded_model_families")
+    if (
+        not isinstance(allowed, list)
+        or not allowed
+        or not all(isinstance(value, str) and not unusable_value(value) for value in allowed)
+        or not isinstance(denied, list)
+        or not all(isinstance(value, str) and not unusable_value(value) for value in denied)
+    ):
+        return False, f"{AUTHORITY_POLICY_FILE} model-family lists are invalid"
+    approver = actor_identity(approved_by)
+    if approver is None:
+        return False, "delegated approver has no comparable model, harness and run identity"
+    model_tokens = actor_model_family(approved_by)
+    allowed_tokens = [set(normalise_actor(value).split()) for value in allowed]
+    denied_tokens = [set(normalise_actor(value).split()) for value in denied]
+    if any(tokens and tokens <= model_tokens for tokens in denied_tokens):
+        return False, "delegated approver matches an excluded model family"
+    if not any(tokens and tokens <= model_tokens for tokens in allowed_tokens):
+        return False, "delegated approver does not match an allowed model family"
+
+    review_path = contained_path(root, SCOPE_REVIEW_FILE)
+    if review_path is None:
+        return False, f"{SCOPE_REVIEW_FILE} is absent or outside the project"
+    try:
+        reviewer = json.loads(review_path.read_text(encoding="utf-8")).get("reviewer")
+    except Exception:
+        return False, f"{SCOPE_REVIEW_FILE} cannot provide a comparable reviewer"
+    if actor_identity(reviewer) == approver:
+        return False, "delegated approver is the scope reviewer run"
+
+    decisions_path = contained_path(root, "decisions.csv")
+    if decisions_path is None:
+        return False, "decisions.csv is absent or outside the project"
+    try:
+        with decisions_path.open(encoding="utf-8", newline="") as handle:
+            rows = list(csv.DictReader(handle))
+    except Exception:
+        return False, "decisions.csv cannot provide decision-maker identities"
+    for row in rows:
+        if (row.get("decision_id") or "").strip().upper() in SCOPE_APPROVAL_DECISION_IDS:
+            if actor_identity(row.get("decided_by")) == approver:
+                return False, "delegated approver made a question or scope decision"
+    return True, ""
+
+
+def automatic_clean_scope_authority(root, exceptional):
+    """Return whether policy permits the controller to open an all-pass scope review."""
+    if exceptional:
+        return False, "automatic scope opening cannot accept a failed or unresolved check"
+    policy_path = contained_path(root, AUTHORITY_POLICY_FILE)
+    if policy_path is None:
+        return False, f"{AUTHORITY_POLICY_FILE} is absent or outside the project"
+    try:
+        policy = json.loads(policy_path.read_text(encoding="utf-8"))
+    except Exception as exc:
+        return False, f"{AUTHORITY_POLICY_FILE} is malformed: {exc}"
+    if not isinstance(policy, dict):
+        return False, f"{AUTHORITY_POLICY_FILE} root must be an object"
+    if policy.get("record_type") != "research_authority_policy":
+        return False, f"{AUTHORITY_POLICY_FILE} record_type is invalid"
+    if policy.get("schema_version") != "1.0" or policy.get("contract") != "combined-lifecycle-v1":
+        return False, f"{AUTHORITY_POLICY_FILE} contract or schema version is invalid"
+    owner = policy.get("policy_owner") if isinstance(policy.get("policy_owner"), str) else ""
+    if not is_scope_approval_authority(owner):
+        return False, f"{AUTHORITY_POLICY_FILE} does not name {SCOPE_APPROVAL_AUTHORITY} as policy owner"
+    permissions = policy.get("delegated_permissions")
+    if not isinstance(permissions, list) or AUTOMATIC_CLEAN_SCOPE_PERMISSION not in permissions:
+        return False, f"{AUTHORITY_POLICY_FILE} does not permit {AUTOMATIC_CLEAN_SCOPE_PERMISSION}"
+    return True, ""
+
+
 ALLOWED_URL_SCHEMES = {"http", "https"}
 URI_ASCII_ALLOWED = frozenset(
     "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
@@ -581,10 +709,57 @@ def contained_file(root, candidate):
     return contained_path(root, candidate) is not None
 
 
-def contained_path(root, candidate):
-    """Return the resolved contained file for candidate, or None when it escapes root."""
+def lexically_unsafe(root, candidate):
+    """Return True when candidate must be refused before any resolution.
+
+    Three cases. An absolute path is not a project-relative register entry. A
+    parent traversal is refused outright rather than tracked, because a lexical
+    cursor that steps back over a component does not model what the filesystem
+    does after a symlink, and the protocol already states parent traversal is
+    invalid. Otherwise every component is tested with lstat, since a symlinked
+    parent relocates the leaf just as effectively as a symlinked leaf.
+
+    Refusing traversal rather than following it is deliberate: an earlier version
+    skipped '..' and left its cursor in place, so 'hop/../link' tested the
+    non-existent 'hop/link' while the real 'link' was never examined.
+    """
     text = (candidate or "").strip()
     if not text:
+        return False
+    path = Path(text)
+    if path.is_absolute() or path.anchor:
+        return True
+    parts = path.parts
+    if any(part == ".." for part in parts):
+        return True
+    try:
+        base = Path(root).resolve()
+    except (OSError, ValueError, RuntimeError):
+        return True
+    current = base
+    for part in parts:
+        if part == ".":
+            continue
+        current = current / part
+        try:
+            if current.is_symlink():
+                return True
+        except OSError:
+            return True
+    return False
+
+
+def contained_path(root, candidate):
+    """Return the resolved contained file for candidate, or None when it escapes root.
+
+    A symlink at any component under root is refused before resolution. Resolved
+    containment is retained as a separate condition, so an escaping target still
+    fails even where no component is a link.
+    """
+    text = (candidate or "").strip()
+    if not text:
+        return None
+    if lexically_unsafe(root, text):
         return None
     try:
         base = Path(root).resolve()
@@ -1681,8 +1856,9 @@ def arm_scope_approval(root, exceptional, report):
     decision rows do not.
 
     What it does not establish: who wrote the record. There is no signature and no external
-    witness here, so the gate can say the record says 'N.' and that it matches what was reviewed.
-    It cannot say N. created it. That limit is the reason the record is bound to the bytes: a
+    witness here, so the gate can say the record names the approving authority and that it matches
+    what was reviewed. It cannot say that authority created it. That limit is why the record is
+    bound to the bytes: a
     changed scope needs a fresh approval rather than a preserved one.
     """
     path = root / SCOPE_APPROVAL_FILE
@@ -1715,11 +1891,25 @@ def arm_scope_approval(root, exceptional, report):
 
     approved_by = record.get("approved_by")
     approved_by = approved_by if isinstance(approved_by, str) else ""
-    if normalise_actor(approved_by) != normalise_actor(SCOPE_APPROVAL_AUTHORITY):
-        report.check(False, f"approved_by is '{approved_by.strip()}'. Acceptance of an unresolved "
-                            f"scope finding is reserved to {SCOPE_APPROVAL_AUTHORITY} and no "
-                            f"reviewer, runner or model substitutes for that authority.",
-                     "SCOPE_APPROVAL")
+    human_approval = is_scope_approval_authority(approved_by)
+    automatic_approval = approved_by.strip() == AUTOMATIC_CLEAN_SCOPE_APPROVER
+    delegated_approval = False
+    if automatic_approval:
+        automatic_approval, delegation_defect = automatic_clean_scope_authority(root, exceptional)
+        if not automatic_approval:
+            report.check(False, delegation_defect, "SCOPE_APPROVAL")
+    elif not human_approval:
+        delegated_approval, delegation_defect = delegated_scope_authority(
+            root, approved_by, exceptional
+        )
+        if not delegated_approval:
+            report.check(
+                False,
+                f"approved_by is '{approved_by.strip()}'. {delegation_defect}. "
+                f"Acceptance of a failed or unresolved scope finding remains reserved to "
+                f"{SCOPE_APPROVAL_AUTHORITY}.",
+                "SCOPE_APPROVAL",
+            )
 
     approval_date = None
     raw_date = record.get("approval_date")
@@ -1776,6 +1966,21 @@ def arm_scope_approval(root, exceptional, report):
                                     f"{recorded.strip()[:12]}..., current {actual[:12]}.... The "
                                     f"approval covered the scope as it stood, so it no longer "
                                     f"binds. Re-approve the current record.", "SCOPE_APPROVAL")
+
+    if delegated_approval or automatic_approval:
+        policy_digest = record.get("authority_policy_sha256")
+        policy_path = contained_path(root, AUTHORITY_POLICY_FILE)
+        if (
+            policy_path is None
+            or not isinstance(policy_digest, str)
+            or not SHA256_HEX.fullmatch(policy_digest)
+            or policy_digest != file_sha256(policy_path)
+        ):
+            report.check(
+                False,
+                f"delegated approval must bind the current {AUTHORITY_POLICY_FILE} SHA-256 digest",
+                "SCOPE_APPROVAL",
+            )
 
     accepted = record.get("accepted_checks")
     if not isinstance(accepted, list) or not all(isinstance(x, str) for x in accepted):
@@ -2096,7 +2301,7 @@ def scope_approval_template():
         "approval_reference": "",
         "bound_files": {name: "" for name in SCOPE_APPROVAL_BOUND_FILES},
         "_fields": {
-            "approved_by": f"The recorded authority is {SCOPE_APPROVAL_AUTHORITY} No reviewer, "
+            "approved_by": f"The recorded authority is {SCOPE_APPROVAL_AUTHORITY}. No reviewer, "
                            f"runner or model substitutes for it.",
             "decision": f"One of {', '.join(sorted(SCOPE_APPROVAL_DECISIONS))}. Stage 'data' "
                         f"opens on '{SCOPE_APPROVAL_OPENS}' alone.",

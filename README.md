@@ -3,9 +3,21 @@
 A versioned protocol and deterministic checker suite for recording methodological decisions and
 comparing research runs.
 
-**v0.3 release candidate: on trial.** The toolchain has passed structural and adversarial checks.
-The research method has not completed an end-to-end v0.2 or v0.3 subject and is not presented as
-validated.
+**AI disclosure.** The author directed this work throughout and retained every research and release
+decision, including what this release withholds and what it claims. Anthropic Claude Opus 5 assisted
+with implementation, repair and release preparation for v0.3. OpenAI GPT-5.6 Sol assisted with
+earlier v0.3 implementation and performed the independent acceptance review of this release. Google
+Gemini 3.7 Flash assisted with maintenance and trial orchestration in the v0.2 era. Models are not
+authors.
+
+**v0.3 release candidate: retained as a component on 24 August 2026.** The toolchain passed its
+recorded structural and adversarial checks. Trial C11 reached a corrected scope and bound
+pre-analysis plan, then stopped before renewed scope approval or Stage 3 outcome collection. No
+v0.2 or v0.3 subject has completed end to end, and the method is not presented as validated.
+Published v0.2-rc2 remains the historical release. OpenDFM/Xcientist was assessed and rejected for
+the current workflow. A combined research lifecycle that uses v0.3 for its decision record is
+developed separately and is not released here: it invokes a claim checker that is not distributed
+with it, so a copy in this repository could not be run from a clone.
 
 Three contracts are recognised. Contract v0.1 is the original 26-decision protocol and is selected
 only by explicit request. Contract v0.2 is the 27-decision protocol with the mandatory `S6` exit and
@@ -19,7 +31,12 @@ Read [`DIVERGENCE_PROTOCOL.md`](DIVERGENCE_PROTOCOL.md) first. The supported cla
 divergence is attributable to named methodological decisions. The protocol does not claim that
 different researchers will agree or that a completed result is substantively correct.
 
-## Enforcement scope
+## Requirements
+
+Python 3, and nothing else. Everything in this repository runs from a clone with no third-party
+package, no external tool and no network request.
+
+## Divergence v0.3 enforcement scope
 
 Six stages (question, scope, data, digest, draft, mint), each with named decision points. Every
 choice capable of changing a result is logged with the alternatives available at the time. The
@@ -30,7 +47,9 @@ the same subject may still reach different conclusions.
 
 ## Components
 
-Standard library only. No dependencies, no network.
+The two checkers in this repository make no network request and run no analysis of their own. They
+read a project directory, check it, and report. Sandboxed execution belongs to the separately
+developed lifecycle and is not part of this release.
 
 ```
 python3 research_gate.py --init PROJECT_DIR    scaffold the four registers for v0.2
@@ -55,9 +74,11 @@ the researcher's recorded approval to proceed, bound by hash to the registers an
 approves. Under v0.3 a material claim resting on an interested source names its corroborating source
 on the claim row rather than inheriting one from the source register.
 
-Those checks establish that the record is complete, internally consistent and unchanged since it was
-reviewed. They do not authenticate who recorded anything, and they do not establish that a source
-supports a claim.
+Those checks establish that the required rows are present, that the register is internally
+consistent, and that each specifically hash-bound record still matches the digest recorded for it at
+its own boundary: the scope rows a review was bound to, and the approval together with the files it
+binds. That is narrower than one review-time binding over every project file. They do not
+authenticate who recorded anything, and they do not establish that a source supports a claim.
 
 `agp_deterministic.py` checks the draft against supplied sources for unsupported numeric tokens,
 entity mismatches, internal numeric contradictions, claims supported only by tier 4 or 5 sources,

@@ -39,6 +39,26 @@ It does not admit the candidate under v0.3 by itself.
 The runner, scope reviewer and semantic reviewer record distinct runs. A mechanical pass does not
 establish that a source supports a claim or that a conclusion is correct.
 
+## First acceptance run
+
+C11 does not open directly from the synthetic controller fixture. First run one scratch known-answer
+replay against a real, already verified dataset and compare the generated candidate claims with the
+held result. The completed C3 and C7 directories contain final registers and findings but no
+executable analysis program, so neither is a genuine replay fixture without reconstructing the
+method after seeing its result.
+
+C11 is the first acceptance candidate for the combined lifecycle, which is developed separately and
+is not released in this repository. It remains parked until the
+exact trial directory, runner, scope reviewer and semantic reviewer are recorded. Reopening Data
+without those four entries is not authorised.
+
+The run is useful only if it produces a source-bound research result and reduces the researcher's
+checking burden. Record the number of researcher interventions, reviewer-requested substantive
+corrections,
+unresolved anchor claims and completed output level. A gate pass alone is not acceptance. Compare
+those measures with the existing C11 sessions where the records permit a like-for-like count. If the
+comparison cannot be reconstructed, record that no baseline was available.
+
 ## Publication eligibility
 
 A subject can enter bundle selection only where all conditions below are recorded:
