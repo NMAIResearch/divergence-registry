@@ -3,9 +3,8 @@
 A versioned protocol and deterministic checker suite for recording methodological decisions and
 comparing research runs.
 
-*AI disclosure: the research is the author's; this text was drafted with AI assistance and reviewed
-by the author. The model, and the conflict it creates, are named in the Conflict of interest and
-scope section.*
+*This work was produced through an AI-assisted workflow directed and reviewed by the
+author.*
 
 **v0.3 release candidate: retained as a component on 24 August 2026.** The toolchain passed its
 recorded structural and adversarial checks. Trial C11 reached a corrected scope and bound
@@ -98,30 +97,20 @@ The checkers establish process integrity and source grounding within their state
 not assess the substantive value of the research question or conclusion. Full limitations are
 listed in the protocol.
 
-## Conflict of interest and scope
+## AI assistance, conflicts and limitations
 
-The research design, method, sourcing decisions and analytical judgements are the author's. Anthropic
-Claude Opus 5 assisted with implementation, repair and release preparation for v0.3. OpenAI GPT-5.6
-Sol assisted with earlier v0.3 implementation and performed the independent acceptance review of this
-release. Google Gemini 3.7 Flash assisted with maintenance and trial orchestration in the v0.2 era.
-This text was artificially generated and was reviewed by the author before publication. Models are
-not authors.
+This work was produced through an AI-assisted workflow directed and reviewed by the author. AI
+systems supported tasks such as research, drafting, coding and review. The systems used are
+recorded in the repository's commit metadata. They are tools, not authors.
 
-The assisting model is not always a neutral party to the subject matter. Two conflicts are specific
-to this release. The reviewing model had earlier contributed implementation to the same contract, so
-part of the acceptance review examined work that reviewer had a hand in. Separately, each release
-gate here is a check on output that assisting models helped produce, and no gate authenticates who
-recorded anything. Both are reasons the author's own review remains the primary control rather than a
-formality.
+An assisting system may be supplied by an organisation discussed in the work, and model review may
+cover material produced elsewhere in the same workflow. Model review is therefore supporting
+evidence, not independent assurance unless the release record explicitly establishes that
+separation.
 
-What the author cannot guarantee: a language model's output can be wrong in ways that survive review.
-In prose the error is locally plausible; in code it simply runs, and a wrong constant or a mis-set
-filter still returns a clean number. Independent review across labs, adversarial fixtures and
-deterministic gates are deployed against this, but the review is not claimed to be exhaustive.
-Corrections are logged against the release when surfaced.
-
-No warranty is offered beyond the terms of the licences below. Independent analysis and open-science
-documentation only, not investment advice.
+AI-generated errors may survive human and automated checks. Deterministic gates and cross-provider
+review reduce, but do not eliminate, that risk. The author remains responsible for the released
+work, and corrections are logged when identified.
 
 ## Licence
 
