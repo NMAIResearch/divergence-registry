@@ -2,6 +2,19 @@ __pycache__/
 *.pyc
 .DS_Store
 
+# Editor and OS artefacts. A Kate swap file reached the public repository on
+# 2026-09-05 through a `git add -A`, carrying no document text but no business
+# being published either.
+*.swp
+*.swo
+*.kate-swp
+.*.kate-swp
+*~
+*.bak
+*.orig
+*.tmp
+Thumbs.db
+
 # Local research and maintainer records are outside the public repository.
 CLAUDE.md
 TESTING_CANDIDATES.md
