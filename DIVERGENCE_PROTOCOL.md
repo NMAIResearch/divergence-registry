@@ -2,20 +2,16 @@
 
 **A six-stage method for logging research decisions and checking source-grounded outputs.**
 
-**AI disclosure.** The author directed this work throughout and retained every research and release
-decision, including what this release withholds and what it claims. Anthropic Claude Opus 5 assisted
-with implementation, repair and release preparation for v0.3. OpenAI GPT-5.6 Sol assisted with
-earlier v0.3 implementation and performed the independent acceptance review of this release. Google
-Gemini 3.7 Flash assisted with maintenance and trial orchestration in the v0.2 era. Models are not
-authors.
+*AI disclosure: the research is the author's; this text was drafted with AI assistance and reviewed
+by the author. The model, and the conflict it creates, are named in the Conflict of interest and
+scope section.*
 
 **Status.** Release candidate dated 21 August 2026, retained on 24 August 2026 as the decision-record
 component of a combined lifecycle that is developed separately and is not released here. Trial C11
-reached a corrected scope
-and bound pre-analysis plan, then stopped before renewed scope approval or Stage 3 outcome
-collection. No subject has completed v0.2 or v0.3 end to end. Published v0.2-rc2 remains the
-historical release. OpenDFM/Xcientist was assessed and rejected for the current workflow. No
-baseline comparison has been run.
+reached a corrected scope and bound pre-analysis plan, then stopped before renewed scope approval or
+Stage 3 outcome collection. No subject has completed v0.2 or v0.3 end to end. Published v0.2-rc2
+remains the historical release. OpenDFM/Xcientist was assessed and rejected for the current
+workflow. No baseline comparison has been run.
 
 **Contract versions.** Three contracts are recognised. Contract v0.1 is the original 26-decision
 trial protocol and is selected only by explicit request. Contract v0.2 is the 27-decision protocol
@@ -634,3 +630,27 @@ fails the demo.
   the sources. Run both; a pass on one says nothing about the other.
 - `agp_deterministic.py` misses a subtle binding where the subject appears in a clean context
   without being the agent. It also misses omissions. Escalate both cases to a human.
+
+## Conflict of interest and scope
+
+The research design, method, sourcing decisions and analytical judgements are the author's. Anthropic
+Claude Opus 5 assisted with implementation, repair and release preparation for v0.3. OpenAI GPT-5.6
+Sol assisted with earlier v0.3 implementation and performed the independent acceptance review of this
+release. Google Gemini 3.7 Flash assisted with maintenance and trial orchestration in the v0.2 era.
+This text was artificially generated and was reviewed by the author before publication. Models are
+not authors.
+
+The assisting model is not always a neutral party to the subject matter. Two conflicts are specific
+to this release. The reviewing model had earlier contributed implementation to the same contract, so
+part of the acceptance review examined work that reviewer had a hand in. Separately, `SCOPE_APPROVAL`
+establishes only that a hash-bound record names the approving authority; it authenticates nobody, so
+a gate pass is not evidence that the named party made the decision.
+
+What the author cannot guarantee: a language model's output can be wrong in ways that survive review.
+In prose the error is locally plausible; in code it simply runs, and a wrong constant or a mis-set
+filter still returns a clean number. Independent review across labs, adversarial fixtures and
+deterministic gates are deployed against this, but the review is not claimed to be exhaustive.
+Corrections are logged against the release when surfaced.
+
+No warranty is offered beyond the terms of the repository licences. Independent analysis and
+open-science documentation only, not investment advice.
