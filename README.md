@@ -6,7 +6,8 @@ comparing research runs.
 *This work was produced through an AI-assisted workflow directed and reviewed by the
 author.*
 
-**v0.3 release candidate: retained as a component on 24 August 2026.** The toolchain passed its
+**Closed on 22 October 2026: no further work is planned.** The v0.3 release candidate was retained as a component on
+24 August 2026. The toolchain passed its
 recorded structural and adversarial checks. Trial C11 reached a corrected scope and bound
 pre-analysis plan, then stopped before renewed scope approval or Stage 3 outcome collection. No
 v0.2 or v0.3 subject has completed end to end, and the method is not presented as validated.

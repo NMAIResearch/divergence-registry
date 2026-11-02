@@ -8,7 +8,7 @@ Purpose: define the reuse terms for the public Divergence Registry repository.
 under `_frozen_instruments/` are licensed under the Creative Commons Attribution 4.0 International
 licence, CC BY 4.0.
 
-Copyright 2026 NM AI Research.
+Copyright 2026 NMAI Research.
 
 Licence summary and legal code: <https://creativecommons.org/licenses/by/4.0/>
 
@@ -20,7 +20,7 @@ License below.
 
 MIT License
 
-Copyright 2026 NM AI Research
+Copyright 2026 NMAI Research
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of this software and
 associated documentation files (the "Software"), to deal in the Software without restriction,
